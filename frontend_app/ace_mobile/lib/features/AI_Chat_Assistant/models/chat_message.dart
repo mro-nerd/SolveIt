@@ -5,7 +5,7 @@ enum MessageSender { User, AI }
 /// Class representing a chat message.
 /// [text] is now mutable to support "streaming" updates from the AI.
 class ChatMessage {
-  String text; // 👈 Modifiable for streaming
+  String text; //Modifiable for streaming
   final DateTime timestamp;
   final MessageSender sender;
   final File? imageFile;

@@ -19,7 +19,6 @@ class AIChatProvider with ChangeNotifier {
 
   List<ChatMessage> get messages => List.unmodifiable(_messages);
 
-  /// 🚀 UPDATED: Now handles STREAMING
   Future<void> sendMessage(String text, {File? image}) async {
     if (text.trim().isEmpty && image == null) return;
 
@@ -46,7 +45,6 @@ class AIChatProvider with ChangeNotifier {
 
       await for (final chunk in stream) {
         if (firstChunk) {
-          // Remove the typing indicator when we get the first real piece of data
           _messages.removeLast();
 
           // Add a new AI message to hold the incoming stream

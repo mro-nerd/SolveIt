@@ -28,11 +28,9 @@ You are the **Parent Copilot**, a clinical-grade but warm AI assistant for paren
 Respond in Markdown.
 """;
 
-  /// 🚀 NEW: Streaming Function!
   /// This returns a Stream of strings, so the UI can update word-by-word.
   Stream<String> getAIResponseStream(String userInput, File? image) async* {
     try {
-      // Step 1: Prep messages
       List<Map<String, dynamic>> messages = [
         {"role": "system", "content": _systemPrompt},
       ];
@@ -66,7 +64,7 @@ Respond in Markdown.
           "model": "google/gemini-2.0-flash-001",
           "messages": messages,
           "temperature": 0.7,
-          "stream": true, // 👈 ENABLE STREAMING
+          "stream": true,
         });
 
       // Step 3: Send and Listen
@@ -88,10 +86,10 @@ Respond in Markdown.
               final json = jsonDecode(dataString);
               final content = json['choices'][0]['delta']['content'];
               if (content != null) {
-                yield content as String; // 👈 PUSH EACH WORD TO THE UI
+                yield content as String; //PUSH EACH WORD TO THE UI
               }
             } catch (e) {
-              // Sometimes chunks are incomplete, we ignore if decoding fails
+              // ignored chunks
             }
           }
         }
