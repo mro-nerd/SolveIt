@@ -1,6 +1,6 @@
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/auth/signInService.dart';
-import 'package:ace_mobile/shared/BottomNavbar.dart';
+// import 'package:ace_mobile/shared/BottomNavbar.dart'; // Removed
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -128,15 +128,20 @@ class _googleSignInButtonState extends State<googleSignInButton> {
       width: MediaQuery.sizeOf(context).width * 0.8,
       child: TextButton.icon(
         onPressed: () async {
-          setState(() {
-            isLoading = true;
-          });
-          final user = await _googleAuthService.signInWithGoogle();
-          if (user != null) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => CustomBottomNavBar()),
-            );
+          setState(() => isLoading = true);
+          try {
+            final user = await _googleAuthService.signInWithGoogle();
+            if (user == null) {
+              // User cancelled login or something went wrong
+              setState(() => isLoading = false);
+            }
+          } catch (e) {
+            setState(() => isLoading = false);
+            if (mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text("Login Failed: $e")));
+            }
           }
         },
         label: isLoading

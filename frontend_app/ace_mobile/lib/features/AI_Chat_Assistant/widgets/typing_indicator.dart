@@ -1,7 +1,6 @@
+import 'package:ace_mobile/core/constants.dart';
 import 'package:flutter/material.dart';
 
-/// A custom animated widget that shows three bouncing dots.
-/// This mimics the Slack/iMessage/WhatsApp typing indicator.
 class TypingIndicator extends StatefulWidget {
   const TypingIndicator({super.key});
 
@@ -16,7 +15,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
   @override
   void initState() {
     super.initState();
-    // We create a controller that repeats the animation indefinitely
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -50,7 +49,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
               width: 6,
               height: 6,
               decoration: const BoxDecoration(
-                color: Color(0xFF5B3FA2), // Using our purple theme color
+                color: appColors.primary,
                 shape: BoxShape.circle,
               ),
             );

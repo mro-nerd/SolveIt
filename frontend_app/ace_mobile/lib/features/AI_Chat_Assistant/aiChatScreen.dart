@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ace_mobile/core/constants.dart';
 import 'widgets/chat_bubble.dart';
 import 'widgets/chat_input.dart';
 import 'ai_chat_provider.dart';
 
-/// The main Chat Screen for the AI Assistant.
-/// It uses the AIChatProvider to manage state and AIChatService for responses.
 class AIChatScreen extends StatelessWidget {
   const AIChatScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // We wrap the screen in a ChangeNotifierProvider to manage the chat state.
-    // If you already have a global provider setup, you can move this higher in the tree.
     return ChangeNotifierProvider(
       create: (_) => AIChatProvider(),
       child: const _AIChatScreenContent(),
@@ -30,73 +27,111 @@ class _AIChatScreenContent extends StatefulWidget {
 class _AIChatScreenContentState extends State<_AIChatScreenContent> {
   final ScrollController _scrollController = ScrollController();
 
-  /// Automatically scrolls to the bottom when a new message arrives.
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+  @override
+  void initState() {
+    super.initState();
+    // Ensure we start at the bottom if there's history
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToBottom(immediate: true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// 🚀 PERSISTENT AUTO-SCROLL
+  /// [immediate] uses jumpTo for instant placement, otherwise animateTo for smooth flow.
+  void _scrollToBottom({bool immediate = false}) {
+    if (_scrollController.hasClients) {
+      final bottom = _scrollController.position.maxScrollExtent;
+      if (immediate) {
+        _scrollController.jumpTo(bottom);
+      } else {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          bottom,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
       }
-    });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final chatProvider = Provider.of<AIChatProvider>(context);
-    const purpleBg = Color(0xFFF8F7FF);
+    final primary = appColors.primary;
+    final bg = appColors.background;
+
+    // ⚡ STREAMING SYNC: This build is triggered for every word chunk
+    // Use a short delay to ensure the framework has laid out the new text/bubles
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
 
     return Scaffold(
-      backgroundColor: purpleBg,
-      appBar: _buildAppBar(context),
+      backgroundColor: bg,
+      appBar: _buildAppBar(context, primary),
       body: Column(
         children: [
-          // 1. Subheader: "Talking about Diego"
-          _buildSubHeader(),
+          // Subheader Badge
+          _buildTopBanner(primary),
 
-          // 2. Chat History Area
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              itemCount:
-                  chatProvider.messages.length +
-                  1, // +1 for the date separator or chips
-              itemBuilder: (context, index) {
-                // Show a date separator at the very top
-                if (index == 0) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20),
-                      child: Text(
-                        "TODAY",
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                          letterSpacing: 2,
-                          fontWeight: FontWeight.bold,
+            child: Container(
+              margin: const EdgeInsets.only(top: 10),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(30),
+                ),
+                child: ListView.builder(
+                  controller: _scrollController,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  itemCount: chatProvider.messages.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Text(
+                            "PROTECTED BY ACE ENCRYPTION",
+                            style: TextStyle(
+                              color: Colors.grey.withValues(alpha: 0.3),
+                              fontSize: 9,
+                              letterSpacing: 1.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                }
-
-                final message = chatProvider.messages[index - 1];
-                return ChatBubble(message: message);
-              },
+                      );
+                    }
+                    final message = chatProvider.messages[index - 1];
+                    return ChatBubble(message: message);
+                  },
+                ),
+              ),
             ),
           ),
 
-          // 3. Quick Action Chips (e.g., Explain report, Behavior tip)
-          _buildQuickActions(chatProvider),
+          // Suggestion Row
+          _buildQuickSuggestions(chatProvider, primary),
 
-          // 4. Input Area
+          // Interactive Input
           ChatInput(
             onSendMessage: (text, image) {
               chatProvider.sendMessage(text, image: image);
-              _scrollToBottom();
+              // Wait for keyboard to start appearing then scroll
+              Future.delayed(
+                const Duration(milliseconds: 100),
+                () => _scrollToBottom(),
+              );
             },
           ),
         ],
@@ -104,132 +139,101 @@ class _AIChatScreenContentState extends State<_AIChatScreenContent> {
     );
   }
 
-  /// Builds the custom AppBar seen in the design
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
+  PreferredSizeWidget _buildAppBar(BuildContext context, Color primary) {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(
-          Icons.arrow_back_ios_new,
-          color: Color(0xFF311B92),
-          size: 20,
-        ),
+        icon: Icon(Icons.chevron_left, color: primary, size: 30),
         onPressed: () => Navigator.pop(context),
       ),
       centerTitle: true,
       title: Column(
         children: [
-          const Text(
-            "Parent Copilot",
+          Text(
+            "Diego's Assistant",
             style: TextStyle(
-              color: Color(0xFF311B92),
+              color: primary,
               fontWeight: FontWeight.bold,
               fontSize: 18,
             ),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: Colors.green,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Text(
-                "ONLINE",
-                style: TextStyle(
-                  color: Colors.green,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          const Text(
+            "PARENT COPILOT • ONLINE",
+            style: TextStyle(
+              color: Colors.green,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
       ),
       actions: [
         IconButton(
           onPressed: () {},
-          icon: const Icon(Icons.info_outline, color: Color(0xFF311B92)),
+          icon: Icon(Icons.more_vert, color: primary),
         ),
       ],
     );
   }
 
-  /// Builds the "Talking about Diego" indicator
-  Widget _buildSubHeader() {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFE8EAF6),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.face, size: 16, color: Color(0xFF311B92)),
-            SizedBox(width: 8),
-            Text(
-              "Talking about Diego",
-              style: TextStyle(
-                color: Color(0xFF311B92),
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
+  Widget _buildTopBanner(Color primary) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.shield_moon_outlined,
+            size: 14,
+            color: primary.withValues(alpha: 0.6),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            "HIPAA Compliant AI Module",
+            style: TextStyle(
+              color: primary.withValues(alpha: 0.6),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
-          ],
-        ).withValue(alpha: 0.8), // Custom styling to match image
+          ),
+        ],
       ),
     );
   }
 
-  /// Builds the horizontal list of suggested questions/actions
-  Widget _buildQuickActions(AIChatProvider provider) {
-    final actions = ["Explain report", "Behavior tip", "Next steps"];
-
+  Widget _buildQuickSuggestions(AIChatProvider provider, Color primary) {
+    final suggestions = ["Summarize today", "Next activity?", "Stress tips"];
     return Container(
-      height: 50,
-      margin: const EdgeInsets.only(bottom: 15),
+      height: 38,
+      margin: const EdgeInsets.symmetric(vertical: 8),
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
-        itemCount: actions.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemCount: suggestions.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           return ActionChip(
             label: Text(
-              actions[index],
-              style: const TextStyle(
-                color: Color(0xFF311B92),
-                fontWeight: FontWeight.w600,
+              suggestions[index],
+              style: TextStyle(
+                color: primary,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
               ),
             ),
             backgroundColor: Colors.white,
-            side: const BorderSide(color: Color(0xFFE8EAF6)),
+            elevation: 0,
+            padding: EdgeInsets.zero,
+            side: BorderSide(color: primary.withValues(alpha: 0.1)),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(15),
             ),
-            onPressed: () {
-              provider.sendMessage(actions[index]);
-              _scrollToBottom();
-            },
+            onPressed: () => provider.sendMessage(suggestions[index]),
           );
         },
       ),
     );
-  }
-}
-
-// Extension to help with transparency since withValues might not be in all Flutter versions yet
-extension WidgetExt on Widget {
-  Widget withValue({required double alpha}) {
-    return Opacity(opacity: alpha, child: this);
   }
 }

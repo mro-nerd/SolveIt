@@ -11,8 +11,12 @@
         "firebase_auth",
         "firebase_core",
         "flutter",
+        "flutter_dotenv",
+        "flutter_markdown",
         "google_fonts",
         "google_sign_in",
+        "http",
+        "image_picker",
         "intl",
         "persistent_bottom_nav_bar",
         "provider"
@@ -45,6 +49,37 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "flutter_dotenv",
+      "version": "6.0.0",
+      "dependencies": [
+        "flutter"
+      ]
+    },
+    {
+      "name": "image_picker",
+      "version": "1.2.1",
+      "dependencies": [
+        "flutter",
+        "image_picker_android",
+        "image_picker_for_web",
+        "image_picker_ios",
+        "image_picker_linux",
+        "image_picker_macos",
+        "image_picker_platform_interface",
+        "image_picker_windows"
+      ]
+    },
+    {
+      "name": "http",
+      "version": "1.6.0",
+      "dependencies": [
+        "async",
+        "http_parser",
+        "meta",
+        "web"
       ]
     },
     {
@@ -222,6 +257,97 @@
       ]
     },
     {
+      "name": "image_picker_windows",
+      "version": "0.2.2",
+      "dependencies": [
+        "file_selector_platform_interface",
+        "file_selector_windows",
+        "flutter",
+        "image_picker_platform_interface"
+      ]
+    },
+    {
+      "name": "image_picker_platform_interface",
+      "version": "2.11.1",
+      "dependencies": [
+        "cross_file",
+        "flutter",
+        "http",
+        "plugin_platform_interface"
+      ]
+    },
+    {
+      "name": "image_picker_macos",
+      "version": "0.2.2+1",
+      "dependencies": [
+        "file_selector_macos",
+        "file_selector_platform_interface",
+        "flutter",
+        "image_picker_platform_interface"
+      ]
+    },
+    {
+      "name": "image_picker_linux",
+      "version": "0.2.2",
+      "dependencies": [
+        "file_selector_linux",
+        "file_selector_platform_interface",
+        "flutter",
+        "image_picker_platform_interface"
+      ]
+    },
+    {
+      "name": "image_picker_ios",
+      "version": "0.8.13+6",
+      "dependencies": [
+        "flutter",
+        "image_picker_platform_interface"
+      ]
+    },
+    {
+      "name": "image_picker_for_web",
+      "version": "3.1.1",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "image_picker_platform_interface",
+        "mime",
+        "web"
+      ]
+    },
+    {
+      "name": "image_picker_android",
+      "version": "0.8.13+14",
+      "dependencies": [
+        "flutter",
+        "flutter_plugin_android_lifecycle",
+        "image_picker_platform_interface"
+      ]
+    },
+    {
+      "name": "web",
+      "version": "1.1.1",
+      "dependencies": []
+    },
+    {
+      "name": "http_parser",
+      "version": "4.1.2",
+      "dependencies": [
+        "collection",
+        "source_span",
+        "string_scanner",
+        "typed_data"
+      ]
+    },
+    {
+      "name": "async",
+      "version": "2.13.0",
+      "dependencies": [
+        "collection",
+        "meta"
+      ]
+    },
+    {
       "name": "nested",
       "version": "1.0.0",
       "dependencies": [
@@ -325,16 +451,6 @@
       ]
     },
     {
-      "name": "http",
-      "version": "1.6.0",
-      "dependencies": [
-        "async",
-        "http_parser",
-        "meta",
-        "web"
-      ]
-    },
-    {
       "name": "crypto",
       "version": "3.0.7",
       "dependencies": [
@@ -357,14 +473,6 @@
       "name": "characters",
       "version": "1.4.1",
       "dependencies": []
-    },
-    {
-      "name": "async",
-      "version": "2.13.0",
-      "dependencies": [
-        "collection",
-        "meta"
-      ]
     },
     {
       "name": "leak_tracker_testing",
@@ -416,23 +524,22 @@
       ]
     },
     {
-      "name": "web",
-      "version": "1.1.1",
-      "dependencies": []
-    },
-    {
-      "name": "google_identity_services_web",
-      "version": "0.3.3+1",
+      "name": "file_selector_windows",
+      "version": "0.9.3+5",
       "dependencies": [
-        "meta",
-        "web"
+        "cross_file",
+        "file_selector_platform_interface",
+        "flutter"
       ]
     },
     {
-      "name": "flutter_web_plugins",
-      "version": "0.0.0",
+      "name": "file_selector_platform_interface",
+      "version": "2.7.0",
       "dependencies": [
-        "flutter"
+        "cross_file",
+        "flutter",
+        "http",
+        "plugin_platform_interface"
       ]
     },
     {
@@ -443,13 +550,63 @@
       ]
     },
     {
-      "name": "http_parser",
-      "version": "4.1.2",
+      "name": "cross_file",
+      "version": "0.3.5+2",
       "dependencies": [
-        "collection",
-        "source_span",
-        "string_scanner",
-        "typed_data"
+        "meta",
+        "web"
+      ]
+    },
+    {
+      "name": "file_selector_macos",
+      "version": "0.9.5",
+      "dependencies": [
+        "cross_file",
+        "file_selector_platform_interface",
+        "flutter"
+      ]
+    },
+    {
+      "name": "file_selector_linux",
+      "version": "0.9.4",
+      "dependencies": [
+        "cross_file",
+        "file_selector_platform_interface",
+        "flutter"
+      ]
+    },
+    {
+      "name": "mime",
+      "version": "2.0.0",
+      "dependencies": []
+    },
+    {
+      "name": "flutter_web_plugins",
+      "version": "0.0.0",
+      "dependencies": [
+        "flutter"
+      ]
+    },
+    {
+      "name": "flutter_plugin_android_lifecycle",
+      "version": "2.0.33",
+      "dependencies": [
+        "flutter"
+      ]
+    },
+    {
+      "name": "typed_data",
+      "version": "1.4.0",
+      "dependencies": [
+        "collection"
+      ]
+    },
+    {
+      "name": "google_identity_services_web",
+      "version": "0.3.3+1",
+      "dependencies": [
+        "meta",
+        "web"
       ]
     },
     {
@@ -509,13 +666,6 @@
       "dependencies": [
         "flutter",
         "path_provider_platform_interface"
-      ]
-    },
-    {
-      "name": "typed_data",
-      "version": "1.4.0",
-      "dependencies": [
-        "collection"
       ]
     },
     {
@@ -625,6 +775,29 @@
         "meta",
         "path"
       ]
+    },
+    {
+      "name": "flutter_markdown",
+      "version": "0.7.7+1",
+      "dependencies": [
+        "flutter",
+        "markdown",
+        "meta",
+        "path"
+      ]
+    },
+    {
+      "name": "markdown",
+      "version": "7.3.0",
+      "dependencies": [
+        "args",
+        "meta"
+      ]
+    },
+    {
+      "name": "args",
+      "version": "2.7.0",
+      "dependencies": []
     }
   ],
   "configVersion": 1

@@ -1,9 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:ace_mobile/core/constants.dart';
 
-/// The input area at the bottom of the chat.
-/// Contains the text field, attachment button, and send button.
 class ChatInput extends StatefulWidget {
-  final Function(String, dynamic) onSendMessage;
+  final Function(String, File?) onSendMessage;
 
   const ChatInput({super.key, required this.onSendMessage});
 
@@ -13,110 +14,207 @@ class ChatInput extends StatefulWidget {
 
 class _ChatInputState extends State<ChatInput> {
   final TextEditingController _controller = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
+  File? _selectedImage;
   bool _isWriting = false;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(() {
-      setState(() {
-        _isWriting = _controller.text.isNotEmpty;
-      });
+      if (mounted) {
+        setState(() {
+          _isWriting = _controller.text.trim().isNotEmpty;
+        });
+      }
     });
   }
 
+  /// 📸 PICK IMAGE LOGIC
+  Future<void> _pickImage() async {
+    debugPrint("DEBUG: _pickImage() called");
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 50,
+      );
+
+      if (pickedFile != null) {
+        debugPrint("DEBUG: Image picked -> ${pickedFile.path}");
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+        });
+      } else {
+        debugPrint("DEBUG: No image selected by user");
+      }
+    } catch (e) {
+      debugPrint("DEBUG: CRITICAL ERROR picking image -> $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: No gallery access. Check permissions! ($e)"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _handleSend() {
-    if (_controller.text.trim().isEmpty) return;
+    final text = _controller.text.trim();
+    if (text.isEmpty && _selectedImage == null) return;
 
-    // Call the callback provided by the parent
-    widget.onSendMessage(_controller.text, null);
+    debugPrint(
+      "DEBUG: Sending message. Text length: ${text.length}, Image attached: ${_selectedImage != null}",
+    );
 
-    // Clear the field
+    // Call the parent callback
+    widget.onSendMessage(text, _selectedImage);
+
+    // Clear local state
     _controller.clear();
+    setState(() {
+      _selectedImage = null;
+      _isWriting = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    const purplePrimary = Color(0xFF311B92);
+    final primaryColor = appColors.primary;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Image Preview (visible when user attaches a file)
+        if (_selectedImage != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            color: Colors.grey.shade50,
+            child: Row(
+              children: [
+                Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(
+                        _selectedImage!,
+                        height: 70,
+                        width: 70,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _selectedImage = null),
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 15),
+                const Expanded(
+                  child: Text(
+                    "Image attached. AI will analyze this for clinical context.",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
-      child: SafeArea(
-        // Ensures it doesn't get cut off on notched phones
-        child: Row(
-          children: [
-            // 1. Attachment Button (Paperclip)
-            IconButton(
-              icon: const Icon(Icons.attach_file, color: Colors.grey),
-              onPressed: () {
-                // Here you would use `image_picker` package to pick an image.
-                // For this demo, we'll show a Snackback.
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Image picker would open here!"),
-                  ),
-                );
-              },
-            ),
 
-            // 2. Text Field
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F7FB),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: TextField(
-                  controller: _controller,
-                  decoration: const InputDecoration(
-                    hintText: "Ask anything about Diego...",
-                    border: InputBorder.none,
-                    hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                  onSubmitted: (_) => _handleSend(),
-                ),
+        // Input Bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(
+            10,
+            10,
+            10,
+            25,
+          ), // Extra bottom padding for safe area
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
               ),
-            ),
-
-            const SizedBox(width: 8),
-
-            // 3. Voice Button (Microphone) - Only shown when not typing
-            if (!_isWriting)
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Paperclip Icon
               IconButton(
-                icon: const Icon(Icons.mic_none_outlined, color: Colors.grey),
-                onPressed: () {},
+                icon: Icon(
+                  Icons.add_photo_alternate_rounded,
+                  color: primaryColor,
+                  size: 26,
+                ),
+                onPressed: _pickImage,
               ),
 
-            // 4. Send Button
-            GestureDetector(
-              onTap: _handleSend,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _isWriting ? purplePrimary : Colors.grey.shade300,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.send_rounded,
-                  color: Colors.white,
-                  size: 20,
+              // TextField
+              Expanded(
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 120),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: TextField(
+                    controller: _controller,
+                    maxLines: null,
+                    decoration: const InputDecoration(
+                      hintText: "Review Diego's progress...",
+                      hintStyle: TextStyle(fontSize: 14, color: Colors.grey),
+                      border: InputBorder.none,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ],
+
+              const SizedBox(width: 8),
+
+              // SEND BUTTON
+              GestureDetector(
+                onTap: _handleSend,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: (_isWriting || _selectedImage != null)
+                        ? primaryColor
+                        : Colors.grey.shade300,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_upward_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

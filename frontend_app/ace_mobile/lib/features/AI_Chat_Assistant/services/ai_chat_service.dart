@@ -1,42 +1,105 @@
+import 'dart:convert';
 import 'dart:io';
-// import '../models/chat_message.dart'; // Removed as it was unused
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-/// This service handles the AI logic.
-/// In a real app, this would call an API like OpenAI Gemini.
-/// Here, we simulate a realistic AI behavior with delays and dynamic responses.
+/// This service connects to OpenRouter to provide REAL-TIME streaming AI responses.
 class AIChatService {
-  /// Simulates getting a response from the AI.
-  /// [userInput] is the text the user typed.
-  /// [image] is an optional file if the user uploaded an image.
-  Future<String> getAIResponse(String userInput, File? image) async {
-    // 1. We simulate "thinking" time which makes the UI feel more natural
-    await Future.delayed(const Duration(seconds: 2));
+  static const String _apiEndpoint =
+      "https://openrouter.ai/api/v1/chat/completions";
+  final String _apiKey = dotenv.env['GENAI_KEY'] ?? '';
 
-    String lowerInput = userInput.toLowerCase();
+  final String _systemPrompt = """
+### ROLE
+You are the **Parent Copilot**, a clinical-grade but warm AI assistant for parents of neurodivergent children (Autism/ADHD).
 
-    // 2. We generate a dynamic response based on what the user asked.
-    // This avoids "placeholder" text and feels more "Production Level".
+### KNOWLEDGE BASE
+- Child's Name: Diego
+- Current Focus: Joint attention, sensory regulation, and routine consistency.
+- Methodology: Evidence-based strategies (ABA, OT, SLP) explained in simple, non-medical terms.
 
-    if (image != null) {
-      return "I've analyzed the image you uploaded. It looks like a progress report from Diego's school. I can see some positive trends in his social interaction scores!";
-    }
+### RESPONSE GUIDELINES
+1. **Be Empathetic**: Use phrases like "I understand that's challenging".
+2. **Be Actionable**: Always give 2-3 small, practical steps.
+3. **Be Structured**: Use bullet points and bold text for clarity.
+4. **Visual Analysis**: If an image is provided, analyze its clinical or environmental context.
 
-    if (lowerInput.contains("diego")) {
-      if (lowerInput.contains("report") || lowerInput.contains("assessment")) {
-        return "I've analyzed Diego's latest assessment from this morning. There is some notable progress in his joint attention scores. Would you like me to explain the key findings?";
+### OUTPUT
+Respond in Markdown.
+""";
+
+  /// 🚀 NEW: Streaming Function!
+  /// This returns a Stream of strings, so the UI can update word-by-word.
+  Stream<String> getAIResponseStream(String userInput, File? image) async* {
+    try {
+      // Step 1: Prep messages
+      List<Map<String, dynamic>> messages = [
+        {"role": "system", "content": _systemPrompt},
+      ];
+
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        final base64Image = base64Encode(bytes);
+        messages.add({
+          "role": "user",
+          "content": [
+            {"type": "text", "text": userInput},
+            {
+              "type": "image_url",
+              "image_url": {"url": "data:image/jpeg;base64,$base64Image"},
+            },
+          ],
+        });
+      } else {
+        messages.add({"role": "user", "content": userInput});
       }
-      return "Diego is doing well! Based on his recent activity, he seems to be responding better to sensory-integrated play. How can I help you more with his routine?";
-    }
 
-    if (lowerInput.contains("behavior") || lowerInput.contains("tip")) {
-      return "For home-based behavior management, I recommend using a visual schedule. It helps reduce transiton anxiety by 40% in children with similar profiles to Diego.";
-    }
+      // Step 2: Create a Request
+      final request = http.Request("POST", Uri.parse(_apiEndpoint))
+        ..headers.addAll({
+          "Authorization": "Bearer $_apiKey",
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://ace-app.com",
+          "X-Title": "ACE Parent Copilot",
+        })
+        ..body = jsonEncode({
+          "model": "google/gemini-2.0-flash-001",
+          "messages": messages,
+          "temperature": 0.7,
+          "stream": true, // 👈 ENABLE STREAMING
+        });
 
-    if (lowerInput.contains("hello") || lowerInput.contains("hi")) {
-      return "Hello! I'm your Parent Copilot. I'm here to help you understand Diego's progress and give you actionable tips based on his clinical reports.";
-    }
+      // Step 3: Send and Listen
+      final client = http.Client();
+      final response = await client.send(request);
 
-    // Default response if no keywords are matched
-    return "That's an interesting point. Based on the data I have, we should monitor how this affects Diego's sleep patterns. Should we add a note for his therapist?";
+      if (response.statusCode == 200) {
+        // Listen to the response stream byte by byte
+        await for (var chunk
+            in response.stream
+                .transform(utf8.decoder)
+                .transform(const LineSplitter())) {
+          if (chunk.trim().isEmpty) continue;
+          if (chunk.startsWith("data: ")) {
+            final dataString = chunk.substring(6).trim();
+            if (dataString == "[DONE]") break;
+
+            try {
+              final json = jsonDecode(dataString);
+              final content = json['choices'][0]['delta']['content'];
+              if (content != null) {
+                yield content as String; // 👈 PUSH EACH WORD TO THE UI
+              }
+            } catch (e) {
+              // Sometimes chunks are incomplete, we ignore if decoding fails
+            }
+          }
+        }
+      } else {
+        yield "Error: Failed to connect (Status ${response.statusCode})";
+      }
+    } catch (e) {
+      yield "I'm sorry, I'm having trouble with my connection: $e";
+    }
   }
 }

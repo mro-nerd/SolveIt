@@ -3,33 +3,27 @@ import 'package:flutter/material.dart';
 import 'models/chat_message.dart';
 import 'services/ai_chat_service.dart';
 
-/// This is the heart of our Chat UI logic.
-/// It manages the list of messages and tells the UI when to rebuild.
+/// Provider for managing the state of the AI Chat.
+/// Handles user input and listens to the AI's streaming response.
 class AIChatProvider with ChangeNotifier {
   final AIChatService _aiService = AIChatService();
 
-  // The internal list of messages
   final List<ChatMessage> _messages = [
-    // We start with a greeting from the AI
     ChatMessage(
       text:
-          "Hello! I've analyzed Diego's latest assessment from this morning. There is some notable progress in his joint attention scores.",
-      timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+          "Hello! I'm your **Parent Copilot**. How can I help you with Diego's progress today?",
+      timestamp: DateTime.now().subtract(const Duration(seconds: 1)),
       sender: MessageSender.AI,
     ),
   ];
 
-  /// Returns an unmodifiable list of messages to prevent accidental bugs.
   List<ChatMessage> get messages => List.unmodifiable(_messages);
 
-  /// Helper to check if the AI is currently "thinking"
-  bool get isAiTyping => _messages.isNotEmpty && _messages.last.isTyping;
-
-  /// Sends a message from the User and triggers the AI response.
+  /// 🚀 UPDATED: Now handles STREAMING
   Future<void> sendMessage(String text, {File? image}) async {
     if (text.trim().isEmpty && image == null) return;
 
-    // 1. Add the User's Message
+    // 1. Add User's message
     _messages.add(
       ChatMessage(
         text: text,
@@ -38,38 +32,51 @@ class AIChatProvider with ChangeNotifier {
         imageFile: image,
       ),
     );
-    notifyListeners(); // Tell the UI to show the user's message immediately
+    notifyListeners();
 
-    // 2. Add the "Typing Indicator"
+    // 2. Add Typing Indicator
     _messages.add(ChatMessage.typing());
     notifyListeners();
 
+    // 3. Start Streaming Response
     try {
-      // 3. Get response from the AI Service
-      final response = await _aiService.getAIResponse(text, image);
+      final stream = _aiService.getAIResponseStream(text, image);
 
-      // 4. Remove the typing indicator and add the real response
-      _messages.removeLast(); // Remove the "typing..." message
-      _messages.add(
-        ChatMessage(
-          text: response,
-          timestamp: DateTime.now(),
-          sender: MessageSender.AI,
-        ),
-      );
+      bool firstChunk = true;
+
+      await for (final chunk in stream) {
+        if (firstChunk) {
+          // Remove the typing indicator when we get the first real piece of data
+          _messages.removeLast();
+
+          // Add a new AI message to hold the incoming stream
+          _messages.add(
+            ChatMessage(
+              text: chunk,
+              timestamp: DateTime.now(),
+              sender: MessageSender.AI,
+            ),
+          );
+          firstChunk = false;
+        } else {
+          // Append subsequent chunks to the last message
+          _messages.last.text += chunk;
+        }
+
+        // Notify listeners so UI updates "stream by stream"
+        notifyListeners();
+      }
     } catch (e) {
-      // Handle errors gracefully
-      _messages.removeLast();
+      if (_messages.last.isTyping) _messages.removeLast();
       _messages.add(
         ChatMessage(
           text:
-              "Sorry, I'm having trouble connecting right now. Please try again.",
+              "I encountered an error. Please check your connection or API key.",
           timestamp: DateTime.now(),
           sender: MessageSender.AI,
         ),
       );
+      notifyListeners();
     }
-
-    notifyListeners(); // Rebuild UI with the new AI message
   }
 }
