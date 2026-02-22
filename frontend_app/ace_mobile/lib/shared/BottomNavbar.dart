@@ -1,4 +1,5 @@
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/AI_Chat_Assistant/aiChatScreen.dart';
 import 'package:ace_mobile/features/HomeScreen.dart';
 import 'package:ace_mobile/features/community/community.dart';
 import 'package:ace_mobile/features/Therapy/therapyScreen.dart';
@@ -65,7 +66,12 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
     return Scaffold(
       //app copilot
       floatingActionButton: InkWell(
-        onTap: () {},
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => AIChatScreen()),
+          );
+        },
         child: Container(
           margin: EdgeInsets.only(bottom: 60),
           padding: EdgeInsets.symmetric(vertical: 6, horizontal: 10),
