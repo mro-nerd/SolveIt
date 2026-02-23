@@ -1,5 +1,6 @@
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/auth/auth_wrapper.dart';
+import 'package:ace_mobile/features/profile/privacy_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -506,7 +507,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                             icon: Icons.privacy_tip_rounded,
                             label: 'Privacy & Data',
                             color: const Color(0xFF059669),
-                            onTap: () {},
+                            onTap: () =>
+                                Navigator.of(context, rootNavigator: true).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const PrivacyScreen(),
+                                  ),
+                                ),
                           ),
                           _divider(),
                           _OptionTile(
