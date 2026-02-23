@@ -3,15 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:ace_mobile/features/auth/loginPage.dart';
 import 'package:ace_mobile/shared/BottomNavbar.dart';
 
-/// The AuthWrapper is a "gatekeeper" widget.
-/// It listens to the Firebase Auth state and decides which screen to show.
+
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // We use a StreamBuilder to listen to 'authStateChanges'.
-    // This stream sends a new 'User' object whenever someone logs in or out.
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {

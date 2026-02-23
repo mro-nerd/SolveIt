@@ -1,6 +1,7 @@
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/AI_Chat_Assistant/aiChatScreen.dart';
 import 'package:ace_mobile/features/HomeScreen.dart';
+import 'package:ace_mobile/features/assessment/screens/assessment_intro_screen.dart';
 import 'package:ace_mobile/features/community/community.dart';
 import 'package:ace_mobile/features/Therapy/therapyScreen.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +27,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
     return const [
       homeScreen(),
       TherapyScreen(),
-      Center(child: Text("Assessment")),
+      AssessmentIntroScreen(),
       CommunityPage(),
     ];
   }
@@ -73,7 +74,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
           );
         },
         child: Container(
-          margin: EdgeInsets.only(bottom: 60),
+          margin: EdgeInsets.only(bottom: 80),
           padding: EdgeInsets.symmetric(vertical: 6, horizontal: 10),
           decoration: BoxDecoration(
             color: appColors.primary,

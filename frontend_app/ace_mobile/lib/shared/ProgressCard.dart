@@ -120,7 +120,7 @@ class DevelopmentLineChartPainter extends CustomPainter {
     final width = size.width;
     final height = size.height;
 
-    // Drawing a smooth curve similar to the image
+    // curve 
     path.moveTo(0, height * 0.8);
     path.cubicTo(
       width * 0.2,

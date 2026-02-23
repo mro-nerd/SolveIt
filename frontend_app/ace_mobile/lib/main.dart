@@ -1,8 +1,11 @@
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/assessment/providers/assessment_provider.dart';
+import 'package:ace_mobile/features/assessment/providers/mchat_ai_provider.dart';
 import 'package:ace_mobile/features/auth/auth_wrapper.dart'; // Added AuthWrapper
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,11 +19,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false, // Cleaner UI
-      title: 'ACE Mobile',
-      theme: appTheme.lightTheme,
-      home: const AuthWrapper(), // 🚀 Now gated by Auth State
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AssessmentProvider()),
+        ChangeNotifierProvider(create: (_) => MchatAiProvider()),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'ACE Mobile',
+        theme: appTheme.lightTheme,
+        home: const AuthWrapper(),
+      ),
     );
   }
 }
