@@ -66,26 +66,19 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
   Widget build(BuildContext context) {
     return Scaffold(
       //app copilot
-      floatingActionButton: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => AIChatScreen()),
-          );
-        },
-        child: Container(
-          margin: EdgeInsets.only(bottom: 80),
-          padding: EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-          decoration: BoxDecoration(
-            color: appColors.primary,
-            shape: BoxShape.rectangle,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            Icons.chat_bubble_outlined,
-            color: Colors.white,
-            size: 36,
-          ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 60),
+        child: FloatingActionButton(
+          elevation: 5,
+          backgroundColor: appColors.primary,
+          foregroundColor: Colors.white,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => AIChatScreen()),
+            );
+          },
+          child: const Icon(Icons.chat_bubble_outlined),
         ),
       ),
       body: PersistentTabView(
