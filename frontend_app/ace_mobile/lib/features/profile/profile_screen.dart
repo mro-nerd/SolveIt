@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -143,6 +144,10 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
 
     if (confirmed != true) return;
+
+    // Clear onboarding flag so next login sees onboarding again
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('onboarding_done');
 
     // Sign out from both Firebase and Google
     await GoogleSignIn().signOut();
