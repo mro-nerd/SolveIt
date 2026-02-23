@@ -1,7 +1,9 @@
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/profile/profile_provider.dart';
+import 'package:ace_mobile/features/profile/profile_screen.dart';
 import 'package:ace_mobile/shared/ProgressCard.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
 
 class homeScreen extends StatefulWidget {
   const homeScreen({super.key});
@@ -11,61 +13,86 @@ class homeScreen extends StatefulWidget {
 }
 
 class _homeScreenState extends State<homeScreen> {
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good Morning,';
+    if (h < 17) return 'Good Afternoon,';
+    return 'Good Evening,';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final profile = context.watch<ProfileProvider>();
+
     return Scaffold(
       body: SingleChildScrollView(
         child: SafeArea(
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Column(
               children: [
-                //top
+                // ── Top bar ────────────────────────────────────────────────
                 Row(
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white, width: 2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          "assets/images/poster.png",
-                          width: 60,
-                          fit: BoxFit.cover,
+                    // Avatar → navigate to ProfileScreen
+                    GestureDetector(
+                      onTap: () =>
+                          Navigator.of(context, rootNavigator: true).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ProfileScreen(),
+                            ),
+                          ),
+                      child: Hero(
+                        tag: 'profile-avatar',
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.white, width: 2),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: appColors.primary.withValues(alpha: 0.2),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: CircleAvatar(
+                            radius: 28,
+                            backgroundImage: profile.avatarImage,
+                          ),
                         ),
                       ),
                     ),
-                    SizedBox(width: 16),
+                    const SizedBox(width: 16),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "CARING FOR",
+                          'CARING FOR',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: Theme.of(
                                   context,
                                 ).colorScheme.primary.withValues(alpha: 0.6),
+                                fontSize: 11,
+                                letterSpacing: 1.0,
                               ),
                         ),
-
                         Text(
-                          "Diago",
+                          profile.displayChildName,
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(
                                 color: Theme.of(
                                   context,
-                                ).colorScheme.primary.withValues(alpha: 0.6),
+                                ).colorScheme.primary.withValues(alpha: 0.85),
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
                       ],
                     ),
-                    Spacer(),
+                    const Spacer(),
                     Container(
-                      padding: EdgeInsets.all(6),
-                      decoration: BoxDecoration(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white,
                       ),
@@ -77,20 +104,21 @@ class _homeScreenState extends State<homeScreen> {
                     ),
                   ],
                 ),
-                SizedBox(height: 40),
-                //salutation
+                const SizedBox(height: 40),
+
+                // ── Salutation ─────────────────────────────────────────────
                 Row(
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Good Morning,",
+                          _greeting(),
                           style: Theme.of(context).textTheme.headlineMedium
                               ?.copyWith(color: Colors.black),
                         ),
                         Text(
-                          "Sarah",
+                          profile.displayParentName,
                           style: Theme.of(context).textTheme.headlineMedium
                               ?.copyWith(
                                 color: Theme.of(context).colorScheme.primary,
@@ -99,52 +127,60 @@ class _homeScreenState extends State<homeScreen> {
                         ),
                       ],
                     ),
-                    Spacer(),
+                    const Spacer(),
                   ],
                 ),
-                SizedBox(height: 20),
-                //status card
+                const SizedBox(height: 20),
+
+                // ── Status card ────────────────────────────────────────────
                 statusCard(),
                 const SizedBox(height: 20),
-                //Scrollable cards
+
+                // ── Scrollable diagnosis cards ─────────────────────────────
                 SizedBox(
                   height: 140,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: const [
                       DiagnosisCard(
-                        title: "Speech\nDelay",
+                        title: 'Speech\nDelay',
                         icon: Icons.record_voice_over,
                       ),
                       DiagnosisCard(
-                        title: "Eye\nContact",
+                        title: 'Eye\nContact',
                         icon: Icons.visibility,
                       ),
-                      DiagnosisCard(title: "Sensory", icon: Icons.sensors),
+                      DiagnosisCard(title: 'Sensory', icon: Icons.sensors),
                       DiagnosisCard(
-                        title: "Social\nSkills",
+                        title: 'Social\nSkills',
                         icon: Icons.people,
                       ),
-                      DiagnosisCard(title: "Behavior", icon: Icons.psychology),
+                      DiagnosisCard(title: 'Behavior', icon: Icons.psychology),
                     ],
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
+
                 ProgressGraphCard(),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
+
                 Align(
-                  alignment: AlignmentGeometry.centerLeft,
+                  alignment: Alignment.centerLeft,
                   child: Text(
-                    " Recent Clinical Notes",
+                    ' Recent Clinical Notes',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: textColors.secondary,
                     ),
                   ),
                 ),
-                SizedBox(height: 12),
-                //clinical note container
+                const SizedBox(height: 12),
+
+                // ── Clinical note ──────────────────────────────────────────
                 Container(
-                  padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 20,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(30),
                     color: Colors.white,
@@ -154,16 +190,16 @@ class _homeScreenState extends State<homeScreen> {
                       Row(
                         children: [
                           Text(
-                            "Dr. Adarsh Sen",
+                            'Dr. Adarsh Sen',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
                                   color: Colors.black,
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
-                          Spacer(),
+                          const Spacer(),
                           Text(
-                            "Feb 20, 2026",
+                            'Feb 20, 2026',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
                                   color: textColors.secondary.withValues(
@@ -173,21 +209,20 @@ class _homeScreenState extends State<homeScreen> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 20),
-                      Container(
-                        child: Text(
-                          softWrap: true,
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                          "Showing great progress in assessments , 30% improvement in eye contact , next Screening due in 12 days",
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: textColors.secondary),
+                      const SizedBox(height: 20),
+                      Text(
+                        softWrap: true,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        'Showing great progress in assessments, 30% improvement in eye contact, next Screening due in 12 days',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: textColors.secondary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -197,7 +232,8 @@ class _homeScreenState extends State<homeScreen> {
   }
 }
 
-//status card
+// ── Status Card ────────────────────────────────────────────────────────────────
+
 class statusCard extends StatefulWidget {
   const statusCard({super.key});
 
@@ -209,7 +245,7 @@ class _statusCardState extends State<statusCard> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
         color: Colors.white,
@@ -229,7 +265,7 @@ class _statusCardState extends State<statusCard> {
                     ),
                   ),
                   Text(
-                    "Great!!",
+                    'Great!!',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Colors.black,
                       fontWeight: FontWeight.bold,
@@ -237,15 +273,18 @@ class _statusCardState extends State<statusCard> {
                   ),
                 ],
               ),
-              Spacer(),
+              const Spacer(),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: appColors.background,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  "Moderate Risk",
+                  'Moderate Risk',
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
@@ -253,8 +292,7 @@ class _statusCardState extends State<statusCard> {
               ),
             ],
           ),
-          SizedBox(height: 20),
-          //status
+          const SizedBox(height: 20),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -263,15 +301,15 @@ class _statusCardState extends State<statusCard> {
                   softWrap: true,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
-                  "Showing great progress in assessments , 30% improvement in eye contact , next Screening due in 12 days",
+                  'Showing great progress in assessments, 30% improvement in eye contact, next Screening due in 12 days',
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: textColors.secondary),
                 ),
               ),
-              SizedBox(width: 20),
+              const SizedBox(width: 20),
               Container(
-                padding: EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: appColors.primary,
@@ -280,11 +318,13 @@ class _statusCardState extends State<statusCard> {
                       color: appColors.primary.withValues(alpha: 0.3),
                       blurRadius: 3,
                       spreadRadius: 2,
-                      offset: Offset(0, 0),
                     ),
                   ],
                 ),
-                child: Icon(Icons.arrow_forward_ios_sharp, color: Colors.white),
+                child: const Icon(
+                  Icons.arrow_forward_ios_sharp,
+                  color: Colors.white,
+                ),
               ),
             ],
           ),
@@ -293,6 +333,8 @@ class _statusCardState extends State<statusCard> {
     );
   }
 }
+
+// ── Diagnosis Card ─────────────────────────────────────────────────────────────
 
 class DiagnosisCard extends StatelessWidget {
   final String title;
@@ -314,10 +356,9 @@ class DiagnosisCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: appColors.background,
-
               borderRadius: BorderRadius.circular(30),
             ),
             child: Icon(icon, size: 28, color: appColors.primary),
