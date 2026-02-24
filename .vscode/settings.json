@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/projects-repos/personal/ace_app/frontend_app/ace_mobile/linux"
+    "cmake.sourceDirectory": "C:/projects-repos/personal/ace_app/frontend_app/ace_mobile/linux",
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

@@ -141,7 +141,7 @@ class _homeScreenState extends State<homeScreen> {
                   height: 140,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
-                    children: const [
+                    children: [
                       DiagnosisCard(
                         title: 'Speech\nDelay',
                         icon: Icons.record_voice_over,
@@ -149,6 +149,8 @@ class _homeScreenState extends State<homeScreen> {
                       DiagnosisCard(
                         title: 'Eye\nContact',
                         icon: Icons.visibility,
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/eye-contact'),
                       ),
                       DiagnosisCard(title: 'Sensory', icon: Icons.sensors),
                       DiagnosisCard(
@@ -339,39 +341,54 @@ class _statusCardState extends State<statusCard> {
 class DiagnosisCard extends StatelessWidget {
   final String title;
   final IconData icon;
+  final VoidCallback? onTap;
 
-  const DiagnosisCard({super.key, required this.title, required this.icon});
+  const DiagnosisCard({
+    super.key,
+    required this.title,
+    required this.icon,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 140,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        color: Colors.white,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: appColors.background,
-              borderRadius: BorderRadius.circular(30),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 140,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          color: Colors.white,
+          border: onTap != null
+              ? Border.all(
+                  color: appColors.primary.withValues(alpha: 0.25),
+                  width: 1.5,
+                )
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: appColors.background,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Icon(icon, size: 28, color: appColors.primary),
             ),
-            child: Icon(icon, size: 28, color: appColors.primary),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
-            textAlign: TextAlign.left,
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.left,
+            ),
+          ],
+        ),
       ),
     );
   }
