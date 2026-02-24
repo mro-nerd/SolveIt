@@ -8,6 +8,7 @@ class EyeContactProvider extends ChangeNotifier {
   int _sessionDurationSeconds = 30;
   int _alignedFrameCount = 0;
   int _totalFrameCount = 0;
+  String _lastButterflyDirection = 'right';
 
   // ── Getters ──────────────────────────────────────────────────────────────
   bool get sessionActive => _sessionActive;
@@ -16,8 +17,26 @@ class EyeContactProvider extends ChangeNotifier {
   int get sessionDurationSeconds => _sessionDurationSeconds;
   int get alignedFrameCount => _alignedFrameCount;
   int get totalFrameCount => _totalFrameCount;
+  String get lastButterflyDirection => _lastButterflyDirection;
 
   // ── Methods ──────────────────────────────────────────────────────────────
+
+  /// Tracks which side of the screen the butterfly is currently on.
+  /// Called by [ButterflyAnimation.onDirectionUpdate].
+  void updateButterflyDirection(String direction) {
+    if (_lastButterflyDirection == direction) return;
+    _lastButterflyDirection = direction;
+    notifyListeners();
+  }
+
+  /// Called by [EyeTrackingOverlay.onGazeDirection] on each sampled frame.
+  /// [gazeDir] is `'left'`, `'right'`, or `'center'`.
+  /// A frame counts as aligned when the gaze direction matches the butterfly
+  /// direction (center is never aligned — the butterfly is always on one side).
+  void recordGazeDirection(String gazeDir) {
+    final aligned = gazeDir == _lastButterflyDirection;
+    recordFrame(aligned);
+  }
 
   /// Starts a new session, optionally overriding the duration.
   void startSession({int durationSeconds = 30}) {
@@ -66,6 +85,7 @@ class EyeContactProvider extends ChangeNotifier {
     _sessionDurationSeconds = 30;
     _alignedFrameCount = 0;
     _totalFrameCount = 0;
+    _lastButterflyDirection = 'right';
     notifyListeners();
   }
 }

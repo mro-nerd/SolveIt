@@ -64,14 +64,17 @@ class _EyeContactScreenState extends State<EyeContactScreen> {
                       children: [
                         // Butterfly floats freely inside this container
                         ButterflyAnimation(
-                          moveInterval: const Duration(seconds: 3),
-                          onDirectionChanged: (_) {
-                            // When camera is wired, pass position into provider
+                          onDirectionUpdate: (direction) {
+                            provider.updateButterflyDirection(direction);
                           },
                         ),
 
-                        // Gaze feedback overlay (only visible during session)
-                        const EyeTrackingOverlay(),
+                        // Invisible background widget: camera + ML Kit
+                        EyeTrackingOverlay(
+                          onGazeDirection: (dir) {
+                            provider.recordGazeDirection(dir);
+                          },
+                        ),
 
                         // Placeholder camera preview label
                         if (!provider.sessionActive)
