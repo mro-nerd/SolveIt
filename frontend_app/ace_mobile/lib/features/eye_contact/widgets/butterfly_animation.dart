@@ -1,19 +1,14 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
-/// A butterfly that traces a figure-8 (lemniscate of Bernoulli) path across
-/// the screen using an [AnimationController] that repeats every 4 seconds.
+/// A butterfly that traces a figure-8 (lemniscate) path across the FULL arena.
 ///
 /// [onDirectionUpdate] is called whenever the butterfly crosses the horizontal
 /// midpoint, reporting `'left'` or `'right'`.
 class ButterflyAnimation extends StatefulWidget {
-  /// Called with `'left'` or `'right'` when the butterfly switches halves.
   final void Function(String direction)? onDirectionUpdate;
 
-  const ButterflyAnimation({
-    super.key,
-    this.onDirectionUpdate,
-  });
+  const ButterflyAnimation({super.key, this.onDirectionUpdate});
 
   @override
   State<ButterflyAnimation> createState() => _ButterflyAnimationState();
@@ -29,15 +24,12 @@ class _ButterflyAnimationState extends State<ButterflyAnimation>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4),
+      duration: const Duration(seconds: 5),
     )..repeat();
-
     _controller.addListener(_onTick);
   }
 
   void _onTick() {
-    // x-component of the lemniscate is cos(t)/(1+sin²(t)).
-    // It is positive (right half) when cos(t) > 0, negative (left) otherwise.
     final t = _controller.value * 2 * pi;
     final direction = cos(t) >= 0 ? 'right' : 'left';
     if (direction != _lastDirection) {
@@ -54,132 +46,259 @@ class _ButterflyAnimationState extends State<ButterflyAnimation>
 
   @override
   Widget build(BuildContext context) {
+    const double size = 70; // butterfly widget size
+
     return LayoutBuilder(builder: (context, constraints) {
-      return AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final t = _controller.value * 2 * pi;
+      final areaW = constraints.maxWidth;
+      final areaH = constraints.maxHeight;
 
-          // Lemniscate of Bernoulli parametric equations:
-          //   x(t) = a · cos(t)        / (1 + sin²(t))
-          //   y(t) = a · sin(t)·cos(t) / (1 + sin²(t))
-          // Scaled so the figure-8 fills ~75 % of the container width.
-          final a = (constraints.maxWidth / 2) * 0.75;
-          final denom = 1 + pow(sin(t), 2);
-          final fx = cos(t) / denom;           // –1 … +1
-          final fy = sin(t) * cos(t) / denom;  // –0.5 … +0.5
+      // The butterfly should be Positioned inside a full-size container
+      // so that it can move freely across the entire arena.
+      return SizedBox.expand(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            final t = _controller.value * 2 * pi;
 
-          // Offset so the centre of the 80×80 widget sits on the path.
-          final dx = constraints.maxWidth / 2 + a * fx - 40;
-          final dy = constraints.maxHeight / 2 + a * fy - 40;
+            // Lemniscate of Bernoulli:
+            //   x(t) = cos(t) / (1 + sin²(t))          ∈ [-1, +1]
+            //   y(t) = sin(t)·cos(t) / (1 + sin²(t))   ∈ [-0.5, +0.5]
+            final denom = 1 + pow(sin(t), 2);
+            final fx = cos(t) / denom; // -1..1
+            final fy = sin(t) * cos(t) / denom; // -0.5..0.5
 
-          return Positioned(
-            left: dx.clamp(0, constraints.maxWidth - 80),
-            top: dy.clamp(0, constraints.maxHeight - 80),
-            child: child!,
-          );
-        },
-        child: const _ButterflyBody(),
+            // Map to arena pixel coordinates:
+            // fx [-1,1] → [margin, areaW - margin - size]
+            // fy [-0.5,0.5] → [margin, areaH - margin - size]
+            const margin = 10.0;
+            final rangeW = areaW - size - 2 * margin;
+            final rangeH = areaH - size - 2 * margin;
+
+            final dx = margin + (rangeW / 2) * (1 + fx);
+            final dy = margin + (rangeH / 2) * (1 + fy * 2); // *2 to fill height
+
+            // Rotation: butterfly faces its movement direction
+            final dt = 0.01;
+            final t2 = t + dt;
+            final denom2 = 1 + pow(sin(t2), 2);
+            final fx2 = cos(t2) / denom2;
+            final fy2 = sin(t2) * cos(t2) / denom2;
+            final angle = atan2(fy2 - fy, fx2 - fx);
+
+            return Stack(
+              children: [
+                Positioned(
+                  left: dx.clamp(margin, areaW - size - margin),
+                  top: dy.clamp(margin, areaH - size - margin),
+                  child: Transform.rotate(
+                    angle: angle,
+                    child: child,
+                  ),
+                ),
+              ],
+            );
+          },
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: const _PaintedButterfly(),
+          ),
+        ),
       );
     });
   }
 }
 
 // ---------------------------------------------------------------------------
-// Internal widgets
+// Custom-painted butterfly with realistic wings
 // ---------------------------------------------------------------------------
 
-class _ButterflyBody extends StatelessWidget {
-  const _ButterflyBody();
+class _PaintedButterfly extends StatefulWidget {
+  const _PaintedButterfly();
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 80,
-      height: 80,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Left wing
-          Positioned(
-            left: 0,
-            child: _Wing(flipX: false),
-          ),
-          // Right wing (mirrored)
-          Positioned(
-            right: 0,
-            child: _Wing(flipX: true),
-          ),
-          // Body
-          Container(
-            width: 8,
-            height: 22,
-            decoration: BoxDecoration(
-              color: const Color(0xFF2D7B60),
-              borderRadius: BorderRadius.circular(5),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  State<_PaintedButterfly> createState() => _PaintedButterflyState();
 }
 
-class _Wing extends StatefulWidget {
-  final bool flipX;
-  const _Wing({required this.flipX});
-
-  @override
-  State<_Wing> createState() => _WingState();
-}
-
-class _WingState extends State<_Wing> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
+class _PaintedButterflyState extends State<_PaintedButterfly>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _flapCtrl;
+  late final Animation<double> _flapAnim;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
+    _flapCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
     )..repeat(reverse: true);
-    _anim = Tween<double>(begin: 1.0, end: 0.15).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    _flapAnim = Tween<double>(begin: 1.0, end: 0.25).animate(
+      CurvedAnimation(parent: _flapCtrl, curve: Curves.easeInOut),
     );
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _flapCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final wing = Container(
-      width: 32,
-      height: 40,
-      decoration: BoxDecoration(
-        color: const Color(0xFF4CAF96).withValues(alpha: 0.85),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          bottomLeft: Radius.circular(10),
-          topRight: Radius.circular(6),
-          bottomRight: Radius.circular(6),
-        ),
-      ),
-    );
-
     return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, child) => Transform.scale(
-        scaleX: widget.flipX ? -_anim.value : _anim.value,
-        alignment:
-            widget.flipX ? Alignment.centerRight : Alignment.centerLeft,
-        child: child,
-      ),
-      child: wing,
+      animation: _flapAnim,
+      builder: (context, _) {
+        return CustomPaint(
+          size: const Size(70, 70),
+          painter: _ButterflyPainter(flapScale: _flapAnim.value),
+        );
+      },
     );
   }
+}
+
+class _ButterflyPainter extends CustomPainter {
+  final double flapScale;
+  const _ButterflyPainter({required this.flapScale});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+
+    // ── Colours ───────────────────────────────────────────────────────────
+    final wingMain = Paint()
+      ..color = const Color(0xFF4CAF96)
+      ..style = PaintingStyle.fill;
+    final wingAccent = Paint()
+      ..color = const Color(0xFF81D4B8)
+      ..style = PaintingStyle.fill;
+    final wingSpot = Paint()
+      ..color = const Color(0xFFB2EBD6)
+      ..style = PaintingStyle.fill;
+    final outline = Paint()
+      ..color = const Color(0xFF2D7B60)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    final bodyPaint = Paint()
+      ..color = const Color(0xFF2D5A48)
+      ..style = PaintingStyle.fill;
+    final antPaint = Paint()
+      ..color = const Color(0xFF2D5A48)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+
+    // ── Draw LEFT wing ────────────────────────────────────────────────────
+    canvas.save();
+    // Scale around the body center to simulate flap (wings fold toward body)
+    canvas.translate(cx, cy);
+    canvas.scale(flapScale, 1.0);
+    canvas.translate(-cx, -cy);
+
+    // Upper-left wing
+    final upperL = Path()
+      ..moveTo(cx, cy - 4)
+      ..cubicTo(cx - 6, cy - 24, cx - 30, cy - 26, cx - 28, cy - 2)
+      ..cubicTo(cx - 26, cy + 4, cx - 12, cy + 4, cx, cy + 2)
+      ..close();
+    canvas.drawPath(upperL, wingMain);
+    canvas.drawPath(upperL, outline);
+
+    // Upper-left accent
+    final upperAccL = Path()
+      ..moveTo(cx - 2, cy - 2)
+      ..cubicTo(cx - 5, cy - 16, cx - 20, cy - 18, cx - 20, cy - 2)
+      ..cubicTo(cx - 18, cy + 2, cx - 8, cy + 2, cx - 2, cy + 0)
+      ..close();
+    canvas.drawPath(upperAccL, wingAccent);
+    canvas.drawCircle(Offset(cx - 14, cy - 7), 3.0, wingSpot);
+
+    // Lower-left wing
+    final lowerL = Path()
+      ..moveTo(cx, cy + 2)
+      ..cubicTo(cx - 10, cy + 6, cx - 24, cy + 12, cx - 18, cy + 22)
+      ..cubicTo(cx - 12, cy + 26, cx - 4, cy + 16, cx, cy + 8)
+      ..close();
+    canvas.drawPath(lowerL, wingMain);
+    canvas.drawPath(lowerL, outline);
+
+    final lowerAccL = Path()
+      ..moveTo(cx - 2, cy + 4)
+      ..cubicTo(cx - 6, cy + 8, cx - 16, cy + 12, cx - 12, cy + 18)
+      ..cubicTo(cx - 8, cy + 20, cx - 4, cy + 12, cx - 2, cy + 8)
+      ..close();
+    canvas.drawPath(lowerAccL, wingAccent);
+
+    canvas.restore();
+
+    // ── Draw RIGHT wing ───────────────────────────────────────────────────
+    canvas.save();
+    canvas.translate(cx, cy);
+    canvas.scale(flapScale, 1.0);
+    canvas.translate(-cx, -cy);
+
+    // Upper-right wing
+    final upperR = Path()
+      ..moveTo(cx, cy - 4)
+      ..cubicTo(cx + 6, cy - 24, cx + 30, cy - 26, cx + 28, cy - 2)
+      ..cubicTo(cx + 26, cy + 4, cx + 12, cy + 4, cx, cy + 2)
+      ..close();
+    canvas.drawPath(upperR, wingMain);
+    canvas.drawPath(upperR, outline);
+
+    final upperAccR = Path()
+      ..moveTo(cx + 2, cy - 2)
+      ..cubicTo(cx + 5, cy - 16, cx + 20, cy - 18, cx + 20, cy - 2)
+      ..cubicTo(cx + 18, cy + 2, cx + 8, cy + 2, cx + 2, cy + 0)
+      ..close();
+    canvas.drawPath(upperAccR, wingAccent);
+    canvas.drawCircle(Offset(cx + 14, cy - 7), 3.0, wingSpot);
+
+    // Lower-right wing
+    final lowerR = Path()
+      ..moveTo(cx, cy + 2)
+      ..cubicTo(cx + 10, cy + 6, cx + 24, cy + 12, cx + 18, cy + 22)
+      ..cubicTo(cx + 12, cy + 26, cx + 4, cy + 16, cx, cy + 8)
+      ..close();
+    canvas.drawPath(lowerR, wingMain);
+    canvas.drawPath(lowerR, outline);
+
+    final lowerAccR = Path()
+      ..moveTo(cx + 2, cy + 4)
+      ..cubicTo(cx + 6, cy + 8, cx + 16, cy + 12, cx + 12, cy + 18)
+      ..cubicTo(cx + 8, cy + 20, cx + 4, cy + 12, cx + 2, cy + 8)
+      ..close();
+    canvas.drawPath(lowerAccR, wingAccent);
+
+    canvas.restore();
+
+    // ── Body (drawn ON TOP of wings) ─────────────────────────────────────
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(cx, cy), width: 5, height: 24),
+        const Radius.circular(3),
+      ),
+      bodyPaint,
+    );
+
+    // Head
+    canvas.drawCircle(Offset(cx, cy - 11), 3.5, bodyPaint);
+
+    // ── Antennae ─────────────────────────────────────────────────────────
+    final leftAnt = Path()
+      ..moveTo(cx - 1, cy - 13)
+      ..quadraticBezierTo(cx - 12, cy - 26, cx - 16, cy - 30);
+    canvas.drawPath(leftAnt, antPaint);
+    canvas.drawCircle(Offset(cx - 16, cy - 30), 1.6, bodyPaint);
+
+    final rightAnt = Path()
+      ..moveTo(cx + 1, cy - 13)
+      ..quadraticBezierTo(cx + 12, cy - 26, cx + 16, cy - 30);
+    canvas.drawPath(rightAnt, antPaint);
+    canvas.drawCircle(Offset(cx + 16, cy - 30), 1.6, bodyPaint);
+  }
+
+  @override
+  bool shouldRepaint(_ButterflyPainter old) => old.flapScale != flapScale;
 }
