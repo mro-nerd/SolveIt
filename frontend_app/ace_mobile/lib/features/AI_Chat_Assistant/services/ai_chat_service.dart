@@ -69,32 +69,36 @@ Respond in Markdown.
 
       // Step 3: Send and Listen
       final client = http.Client();
-      final response = await client.send(request);
+      try {
+        final response = await client.send(request);
 
-      if (response.statusCode == 200) {
-        // Listen to the response stream byte by byte
-        await for (var chunk
-            in response.stream
-                .transform(utf8.decoder)
-                .transform(const LineSplitter())) {
-          if (chunk.trim().isEmpty) continue;
-          if (chunk.startsWith("data: ")) {
-            final dataString = chunk.substring(6).trim();
-            if (dataString == "[DONE]") break;
+        if (response.statusCode == 200) {
+          // Listen to the response stream byte by byte
+          await for (var chunk
+              in response.stream
+                  .transform(utf8.decoder)
+                  .transform(const LineSplitter())) {
+            if (chunk.trim().isEmpty) continue;
+            if (chunk.startsWith("data: ")) {
+              final dataString = chunk.substring(6).trim();
+              if (dataString == "[DONE]") break;
 
-            try {
-              final json = jsonDecode(dataString);
-              final content = json['choices'][0]['delta']['content'];
-              if (content != null) {
-                yield content as String; //PUSH EACH WORD TO THE UI
+              try {
+                final json = jsonDecode(dataString);
+                final content = json['choices'][0]['delta']['content'];
+                if (content != null) {
+                  yield content as String; //PUSH EACH WORD TO THE UI
+                }
+              } catch (e) {
+                // ignored chunks
               }
-            } catch (e) {
-              // ignored chunks
             }
           }
+        } else {
+          yield "Error: Failed to connect (Status ${response.statusCode})";
         }
-      } else {
-        yield "Error: Failed to connect (Status ${response.statusCode})";
+      } finally {
+        client.close();
       }
     } catch (e) {
       yield "I'm sorry, I'm having trouble with my connection: $e";
