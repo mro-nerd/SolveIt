@@ -93,31 +93,37 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
       if (original == null) throw Exception('Failed to decode image');
       final resized = img.copyResize(original, width: 256, height: 256);
 
-      // 3. Normalize pixel values to float32 between 0 and 1
-      final input = Float32List(1 * 256 * 256 * 3);
+      // 3. Convert pixel values to uint8 (0–255) as required by MoveNet
+      final input = Uint8List(1 * 256 * 256 * 3);
       int pixelIndex = 0;
       for (int y = 0; y < 256; y++) {
         for (int x = 0; x < 256; x++) {
           final pixel = resized.getPixel(x, y);
-          input[pixelIndex++] = pixel.r / 255.0;
-          input[pixelIndex++] = pixel.g / 255.0;
-          input[pixelIndex++] = pixel.b / 255.0;
+          input[pixelIndex++] = pixel.r.toInt();
+          input[pixelIndex++] = pixel.g.toInt();
+          input[pixelIndex++] = pixel.b.toInt();
         }
       }
-      final inputTensor = input.reshape([1, 256, 256, 3]);
 
       // 4. Run inference — output shape [1, 1, 17, 3]
+      //    Use runForMultipleInputs to get properly typed output
       final output = List.generate(
         1,
         (_) => List.generate(
           1,
-          (_) => List.generate(17, (_) => Float32List(3)),
+          (_) => List.generate(17, (_) => List.filled(3, 0.0)),
         ),
       );
-      _interpreter!.run(inputTensor, output);
+      final outputMap = <int, Object>{0: output};
+      _interpreter!.runForMultipleInputs([input], outputMap);
 
-      // 5. Extract keypoints: each is [y, x, confidence]
-      final keypoints = output[0][0];
+      // 5. Extract keypoints from output: each is [y, x, confidence]
+      final keypoints = output[0][0]; // 17 keypoints, each [y, x, conf]
+      List<double> _kp(int idx) => [
+            (keypoints[idx][0] as double),
+            (keypoints[idx][1] as double),
+            (keypoints[idx][2] as double),
+          ];
 
       // 6. Check confidence > 0.3 for all required keypoints
       final requiredIndices = [
@@ -127,7 +133,7 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
         _kLeftHip, _kRightHip,
       ];
       final allConfident = requiredIndices.every(
-        (i) => keypoints[i][2] > 0.3,
+        (i) => _kp(i)[2] > 0.3,
       );
       if (!allConfident) {
         _isProcessing = false;
@@ -137,24 +143,24 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
       // 7. Calculate joint angles using atan2
       final angles = <String, double>{
         'left_elbow': _angleDeg(
-          keypoints[_kLeftShoulder],
-          keypoints[_kLeftElbow],
-          keypoints[_kLeftWrist],
+          _kp(_kLeftShoulder),
+          _kp(_kLeftElbow),
+          _kp(_kLeftWrist),
         ),
         'right_elbow': _angleDeg(
-          keypoints[_kRightShoulder],
-          keypoints[_kRightElbow],
-          keypoints[_kRightWrist],
+          _kp(_kRightShoulder),
+          _kp(_kRightElbow),
+          _kp(_kRightWrist),
         ),
         'left_shoulder': _angleDeg(
-          keypoints[_kLeftHip],
-          keypoints[_kLeftShoulder],
-          keypoints[_kLeftElbow],
+          _kp(_kLeftHip),
+          _kp(_kLeftShoulder),
+          _kp(_kLeftElbow),
         ),
         'right_shoulder': _angleDeg(
-          keypoints[_kRightHip],
-          keypoints[_kRightShoulder],
-          keypoints[_kRightElbow],
+          _kp(_kRightHip),
+          _kp(_kRightShoulder),
+          _kp(_kRightElbow),
         ),
       };
 
@@ -168,7 +174,7 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
   }
 
   /// Angle (in degrees) at vertex B in the triangle A → B → C.
-  double _angleDeg(Float32List a, Float32List b, Float32List c) {
+  double _angleDeg(List<double> a, List<double> b, List<double> c) {
     // Keypoints are [y, x, confidence]
     final baX = a[1] - b[1];
     final baY = a[0] - b[0];

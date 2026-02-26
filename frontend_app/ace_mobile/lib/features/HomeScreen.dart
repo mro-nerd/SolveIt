@@ -1,5 +1,6 @@
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/eye_contact/eye_contact_screen.dart';
+import 'package:ace_mobile/features/imitation/imitation_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:ace_mobile/features/profile/profile_screen.dart';
 import 'package:ace_mobile/shared/ProgressCard.dart';
@@ -154,6 +155,16 @@ class _homeScreenState extends State<homeScreen> {
                             Navigator.of(context, rootNavigator: true).push(
                               MaterialPageRoute(
                                 builder: (_) => const EyeContactScreen(),
+                              ),
+                            ),
+                      ),
+                      DiagnosisCard(
+                        title: 'Copy the\nPose',
+                        icon: Icons.accessibility_new,
+                        onTap: () =>
+                            Navigator.of(context, rootNavigator: true).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ImitationScreen(),
                               ),
                             ),
                       ),
