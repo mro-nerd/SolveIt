@@ -149,8 +149,10 @@ class _homeScreenState extends State<homeScreen> {
                       DiagnosisCard(
                         title: 'Eye\nContact',
                         icon: Icons.visibility,
-                        onTap: () =>
-                            Navigator.pushNamed(context, '/eye-contact'),
+                        onTap: () => Navigator.of(
+                          context,
+                          rootNavigator: true,
+                        ).pushNamed('/eye-contact'),
                       ),
                       DiagnosisCard(title: 'Sensory', icon: Icons.sensors),
                       DiagnosisCard(
