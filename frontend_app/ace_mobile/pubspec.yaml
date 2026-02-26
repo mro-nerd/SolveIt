@@ -79,6 +79,7 @@ flutter:
   assets:
     - assets/images/
     - .env
+    - assets/models/movenet.tflite
 
 
   # An image asset can refer to one or more resolution-specific "variants", see
