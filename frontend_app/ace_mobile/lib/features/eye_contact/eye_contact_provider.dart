@@ -20,9 +20,6 @@ class EyeContactProvider extends ChangeNotifier {
   /// Butterfly's current normalized X position [-1, +1].
   double _butterflyX = 0.0;
 
-  /// Child's latest smoothed yaw angle (degrees).
-  double _gazeYaw = 0.0;
-
   /// Timestamp when the session started (for grace period).
   DateTime? _sessionStart;
 
@@ -54,7 +51,6 @@ class EyeContactProvider extends ChangeNotifier {
   /// Called by [EyeTrackingOverlay.onGazeYaw] with the smoothed yaw angle.
   /// Scores the frame and updates the running average.
   void recordGazeYaw(double yawAngle) {
-    _gazeYaw = yawAngle;
     if (!_sessionActive) return;
     if (inGracePeriod) return; // Don't score during grace period.
 
@@ -85,7 +81,6 @@ class EyeContactProvider extends ChangeNotifier {
     _alignedFrameCount = 0;
     _scoreSum = 0.0;
     _score = 0.0;
-    _gazeYaw = 0.0;
     _butterflyX = 0.0;
     _sessionStart = DateTime.now();
     notifyListeners();
@@ -105,7 +100,6 @@ class EyeContactProvider extends ChangeNotifier {
     _totalFrameCount = 0;
     _alignedFrameCount = 0;
     _scoreSum = 0.0;
-    _gazeYaw = 0.0;
     _butterflyX = 0.0;
     _sessionStart = null;
     notifyListeners();
