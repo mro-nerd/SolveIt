@@ -35,8 +35,6 @@ class _EyeContactScreenState extends State<EyeContactScreen> {
   // ── Local state ────────────────────────────────────────────────────────────
   Timer? _countdownTimer;
   int _secondsLeft = 30;
-  String _butterflyDir = 'right';
-  String _gazeDir = 'center';
   bool _showResults = false;
 
   // ── Session helpers ────────────────────────────────────────────────────────
@@ -46,8 +44,6 @@ class _EyeContactScreenState extends State<EyeContactScreen> {
     setState(() {
       _secondsLeft = p.sessionDurationSeconds;
       _showResults = false;
-      _gazeDir = 'center';
-      _butterflyDir = 'right';
     });
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -77,23 +73,19 @@ class _EyeContactScreenState extends State<EyeContactScreen> {
     _countdownTimer = null;
     p.reset();
     setState(() {
-      _secondsLeft = p.sessionDurationSeconds; // reads the just-reset value (30)
+      _secondsLeft = p.sessionDurationSeconds;
       _showResults = false;
-      _butterflyDir = 'right';
-      _gazeDir = 'center';
     });
   }
 
-  // ── Direction callbacks (called at up to ~3 Hz each, no rebuild needed) ───
+  // ── Position / gaze callbacks ─────────────────────────────────────────────
 
-  void _onButterflyDir(String dir, EyeContactProvider p) {
-    _butterflyDir = dir;
-    if (p.sessionActive) p.recordFrame(dir == _gazeDir);
+  void _onButterflyPos(double normalizedX, EyeContactProvider p) {
+    p.updateButterflyPosition(normalizedX);
   }
 
-  void _onGazeDir(String dir, EyeContactProvider p) {
-    _gazeDir = dir;
-    if (p.sessionActive) p.recordFrame(_butterflyDir == dir);
+  void _onGazeYaw(double yawAngle, EyeContactProvider p) {
+    p.recordGazeYaw(yawAngle);
   }
 
   @override
@@ -132,6 +124,7 @@ class _EyeContactScreenState extends State<EyeContactScreen> {
                     secondsLeft: _secondsLeft,
                     totalSeconds: total,
                     sessionActive: provider.sessionActive,
+                    inGracePeriod: provider.inGracePeriod,
                   ),
 
                   // ── Butterfly arena ───────────────────────────────────────
@@ -152,21 +145,25 @@ class _EyeContactScreenState extends State<EyeContactScreen> {
                             children: [
                               // ① invisible camera processor (bottom of stack)
                               EyeTrackingOverlay(
-                                onGazeDirection: (d) =>
-                                    _onGazeDir(d, provider),
+                                onGazeYaw: (yaw) => _onGazeYaw(yaw, provider),
                               ),
 
                               // ② animated butterfly
                               ButterflyAnimation(
-                                onDirectionUpdate: (d) =>
-                                    _onButterflyDir(d, provider),
+                                onPositionUpdate: (x) =>
+                                    _onButterflyPos(x, provider),
                               ),
 
-                              // ③ idle prompt
+                              // ③ grace period overlay
+                              if (provider.sessionActive &&
+                                  provider.inGracePeriod)
+                                const _GraceOverlay(),
+
+                              // ④ idle prompt
                               if (!provider.sessionActive && !_showResults)
                                 const _StartPrompt(),
 
-                              // ④ results card (slides up from bottom)
+                              // ⑤ results card (slides up from bottom)
                               if (_showResults)
                                 _ResultsCard(
                                   score: provider.score,
@@ -206,6 +203,39 @@ class _EyeContactScreenState extends State<EyeContactScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// _GraceOverlay — shown during the 2-second grace period
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GraceOverlay extends StatelessWidget {
+  const _GraceOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Get ready… 🦋',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: appColors.primary,
+              ),
+            ),
+          ),
+        )
+        .animate()
+        .fadeIn(duration: 300.ms)
+        .then()
+        .fadeOut(delay: 1500.ms, duration: 300.ms);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // _TopBar
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -214,12 +244,14 @@ class _TopBar extends StatelessWidget {
   final int secondsLeft;
   final int totalSeconds;
   final bool sessionActive;
+  final bool inGracePeriod;
 
   const _TopBar({
     required this.onBack,
     required this.secondsLeft,
     required this.totalSeconds,
     required this.sessionActive,
+    required this.inGracePeriod,
   });
 
   @override
@@ -276,8 +308,9 @@ class _CountdownRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fraction =
-        totalSeconds > 0 ? (secondsLeft / totalSeconds).clamp(0.0, 1.0) : 0.0;
+    final fraction = totalSeconds > 0
+        ? (secondsLeft / totalSeconds).clamp(0.0, 1.0)
+        : 0.0;
     final isLow = secondsLeft <= 5;
     final color = isLow ? _ringLowColor : _ringColor;
 
@@ -355,37 +388,37 @@ class _StartPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('🦋', style: TextStyle(fontSize: 64))
-              .animate(onPlay: (c) => c.repeat(reverse: true))
-              .scale(
-                begin: const Offset(1, 1),
-                end: const Offset(1.15, 1.15),
-                duration: 900.ms,
-                curve: Curves.easeInOut,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🦋', style: TextStyle(fontSize: 64))
+                  .animate(onPlay: (c) => c.repeat(reverse: true))
+                  .scale(
+                    begin: const Offset(1, 1),
+                    end: const Offset(1.15, 1.15),
+                    duration: 900.ms,
+                    curve: Curves.easeInOut,
+                  ),
+              const SizedBox(height: 16),
+              Text(
+                'Follow the butterfly!',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: appColors.primary.withValues(alpha: 0.75),
+                ),
               ),
-          const SizedBox(height: 16),
-          Text(
-            'Follow the butterfly!',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: appColors.primary.withValues(alpha: 0.75),
-            ),
+              const SizedBox(height: 6),
+              Text(
+                'Tap Start below 👇',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: appColors.secondary.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Tap Start below 👇',
-            style: TextStyle(
-              fontSize: 15,
-              color: appColors.secondary.withValues(alpha: 0.6),
-            ),
-          ),
-        ],
-      ),
-    )
+        )
         .animate()
         .fadeIn(duration: 500.ms)
         .slideY(begin: 0.08, end: 0, duration: 500.ms, curve: Curves.easeOut);
@@ -426,78 +459,81 @@ class _ResultsCard extends StatelessWidget {
     }
 
     return Center(
-      child: Container(
-        margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(32),
-          boxShadow: [
-            BoxShadow(
-              color: appColors.primary.withValues(alpha: 0.12),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+          child: Container(
+            margin: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: [
+                BoxShadow(
+                  color: appColors.primary.withValues(alpha: 0.12),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 72)),
-            const SizedBox(height: 12),
-            Text(
-              '$pct%',
-              style: TextStyle(
-                fontSize: 56,
-                fontWeight: FontWeight.w900,
-                color: pct >= 80
-                    ? appColors.green
-                    : pct >= 50
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(emoji, style: const TextStyle(fontSize: 72)),
+                const SizedBox(height: 12),
+                Text(
+                  '$pct%',
+                  style: TextStyle(
+                    fontSize: 56,
+                    fontWeight: FontWeight.w900,
+                    color: pct >= 80
+                        ? appColors.green
+                        : pct >= 50
                         ? appColors.primary
                         : appColors.red,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              message,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF555577),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$aligned of $total frames aligned',
-              style: TextStyle(
-                fontSize: 13,
-                color: appColors.secondary.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 28),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: onTryAgain,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _btnColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
                   ),
-                  elevation: 0,
                 ),
-                child: const Text(
-                  'Try Again 🦋',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF555577),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                Text(
+                  '$aligned of $total frames aligned',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: appColors.secondary.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onTryAgain,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _btnColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Try Again 🦋',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    )
+          ),
+        )
         .animate()
         .fadeIn(duration: 400.ms)
         .slideY(begin: 0.12, end: 0, duration: 400.ms, curve: Curves.easeOut);

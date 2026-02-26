@@ -6,17 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 /// Invisible background widget that opens the front camera, samples every
-/// 300 ms, and calls [onGazeDirection] with `'left'`, `'right'`, or
-/// `'center'` based on the user's head Euler-Y angle.
+/// 150 ms, and calls [onGazeYaw] with the **smoothed yaw angle** (in degrees)
+/// after applying EMA noise reduction and front-camera mirror correction.
+///
+/// Positive yaw → child is looking to the RIGHT side of the screen.
+/// Negative yaw → child is looking to the LEFT side of the screen.
 ///
 /// Renders as [SizedBox.shrink] — no pixels on screen.
 /// On camera permission denial a [SnackBar] is shown via [ScaffoldMessenger].
 class EyeTrackingOverlay extends StatefulWidget {
-  /// Called whenever a new gaze direction is determined from a camera frame.
-  /// Direction is one of `'left'`, `'right'`, or `'center'`.
-  final void Function(String direction)? onGazeDirection;
+  /// Called whenever a new smoothed yaw angle is determined from a camera frame.
+  /// The value is in degrees: negative = looking left, positive = looking right.
+  final void Function(double yawAngle)? onGazeYaw;
 
-  const EyeTrackingOverlay({super.key, this.onGazeDirection});
+  const EyeTrackingOverlay({super.key, this.onGazeYaw});
 
   @override
   State<EyeTrackingOverlay> createState() => _EyeTrackingOverlayState();
@@ -29,8 +32,21 @@ class _EyeTrackingOverlayState extends State<EyeTrackingOverlay> {
   /// Guards against overlapping processImage calls.
   bool _processing = false;
 
-  /// Timestamp of the last processed frame — used to enforce the 300 ms gap.
+  /// Timestamp of the last processed frame — used to enforce the sampling gap.
   DateTime _lastSample = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Whether the active camera is front-facing (needs mirror correction).
+  bool _isFrontCamera = false;
+
+  /// Exponential Moving Average state for yaw smoothing.
+  double? _smoothedYaw;
+
+  /// EMA smoothing factor. Lower = smoother but laggier; higher = more responsive.
+  /// 0.35 is a good balance for head-tracking at ~7 Hz sampling.
+  static const double _emaAlpha = 0.35;
+
+  /// Sampling interval in milliseconds (150 ms ≈ ~7 Hz).
+  static const int _sampleIntervalMs = 150;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -40,7 +56,7 @@ class _EyeTrackingOverlayState extends State<EyeTrackingOverlay> {
     _detector = FaceDetector(
       options: FaceDetectorOptions(
         enableLandmarks: true,
-        enableClassification: true, // gives leftEyeOpenProbability etc.
+        enableClassification: true,
         performanceMode: FaceDetectorMode.fast,
       ),
     );
@@ -54,6 +70,8 @@ class _EyeTrackingOverlayState extends State<EyeTrackingOverlay> {
         (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
       );
+
+      _isFrontCamera = front.lensDirection == CameraLensDirection.front;
 
       final ctrl = CameraController(
         front,
@@ -86,9 +104,7 @@ class _EyeTrackingOverlayState extends State<EyeTrackingOverlay> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          'Camera permission denied — eye tracking unavailable.',
-        ),
+        content: Text('Camera permission denied — eye tracking unavailable.'),
         duration: Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
       ),
@@ -99,7 +115,7 @@ class _EyeTrackingOverlayState extends State<EyeTrackingOverlay> {
 
   void _onCameraImage(CameraImage image) {
     final now = DateTime.now();
-    if (now.difference(_lastSample).inMilliseconds < 300) return;
+    if (now.difference(_lastSample).inMilliseconds < _sampleIntervalMs) return;
     if (_processing) return;
     _lastSample = now;
     _processing = true;
@@ -119,22 +135,26 @@ class _EyeTrackingOverlayState extends State<EyeTrackingOverlay> {
         (a, b) => a.boundingBox.width > b.boundingBox.width ? a : b,
       );
 
-      final yaw = face.headEulerAngleY;
-      if (yaw == null) return;
+      final rawYaw = face.headEulerAngleY;
+      if (rawYaw == null) return;
 
-      // headEulerAngleY > 0 → face turned to its left  (looking at their right)
-      // headEulerAngleY < 0 → face turned to its right (looking at their left)
-      // ±10 ° dead-band = 'center'
-      final String direction;
-      if (yaw > 10) {
-        direction = 'right';
-      } else if (yaw < -10) {
-        direction = 'left';
+      // ── Mirror correction ──
+      // ML Kit reports yaw relative to the camera sensor.
+      // On the front camera the image is mirrored, so we negate the yaw
+      // to align with the child's perspective:
+      //   positive = child looking to their right (right side of screen)
+      //   negative = child looking to their left  (left side of screen)
+      final correctedYaw = _isFrontCamera ? -rawYaw : rawYaw;
+
+      // ── EMA smoothing ──
+      if (_smoothedYaw == null) {
+        _smoothedYaw = correctedYaw;
       } else {
-        direction = 'center';
+        _smoothedYaw =
+            _emaAlpha * correctedYaw + (1 - _emaAlpha) * _smoothedYaw!;
       }
 
-      widget.onGazeDirection?.call(direction);
+      widget.onGazeYaw?.call(_smoothedYaw!);
     } catch (_) {
       // Silently swallow per-frame errors — never crash the image stream.
     }
@@ -145,7 +165,7 @@ class _EyeTrackingOverlayState extends State<EyeTrackingOverlay> {
 
     final rotation =
         InputImageRotationValue.fromRawValue(sensor.sensorOrientation) ??
-            InputImageRotation.rotation0deg;
+        InputImageRotation.rotation0deg;
 
     final format = Platform.isAndroid
         ? InputImageFormat.nv21
@@ -158,9 +178,7 @@ class _EyeTrackingOverlayState extends State<EyeTrackingOverlay> {
     if (image.planes.length == 1) {
       bytes = image.planes.first.bytes;
     } else {
-      bytes = Uint8List.fromList(
-        image.planes.expand((p) => p.bytes).toList(),
-      );
+      bytes = Uint8List.fromList(image.planes.expand((p) => p.bytes).toList());
     }
 
     return InputImage.fromBytes(

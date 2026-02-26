@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 
 /// A butterfly that traces a figure-8 (lemniscate) path across the FULL arena.
 ///
-/// [onDirectionUpdate] is called whenever the butterfly crosses the horizontal
-/// midpoint, reporting `'left'` or `'right'`.
+/// [onPositionUpdate] is called on every animation frame with the butterfly's
+/// **normalized X position** in the range `[-1.0, +1.0]`:
+///   -1.0 = far left edge, 0.0 = horizontal centre, +1.0 = far right edge.
 class ButterflyAnimation extends StatefulWidget {
-  final void Function(String direction)? onDirectionUpdate;
+  final void Function(double normalizedX)? onPositionUpdate;
 
-  const ButterflyAnimation({super.key, this.onDirectionUpdate});
+  const ButterflyAnimation({super.key, this.onPositionUpdate});
 
   @override
   State<ButterflyAnimation> createState() => _ButterflyAnimationState();
@@ -17,25 +18,26 @@ class ButterflyAnimation extends StatefulWidget {
 class _ButterflyAnimationState extends State<ButterflyAnimation>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  String _lastDirection = '';
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 5),
+      // 8-second cycle — slow enough for children to follow comfortably.
+      duration: const Duration(seconds: 8),
     )..repeat();
     _controller.addListener(_onTick);
   }
 
   void _onTick() {
     final t = _controller.value * 2 * pi;
-    final direction = cos(t) >= 0 ? 'right' : 'left';
-    if (direction != _lastDirection) {
-      _lastDirection = direction;
-      widget.onDirectionUpdate?.call(direction);
-    }
+
+    // Lemniscate x ∈ [-1, +1]
+    final denom = 1 + pow(sin(t), 2);
+    final fx = cos(t) / denom;
+
+    widget.onPositionUpdate?.call(fx.toDouble());
   }
 
   @override
@@ -48,64 +50,64 @@ class _ButterflyAnimationState extends State<ButterflyAnimation>
   Widget build(BuildContext context) {
     const double size = 70; // butterfly widget size
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final areaW = constraints.maxWidth;
-      final areaH = constraints.maxHeight;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final areaW = constraints.maxWidth;
+        final areaH = constraints.maxHeight;
 
-      // The butterfly should be Positioned inside a full-size container
-      // so that it can move freely across the entire arena.
-      return SizedBox.expand(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            final t = _controller.value * 2 * pi;
+        // The butterfly should be Positioned inside a full-size container
+        // so that it can move freely across the entire arena.
+        return SizedBox.expand(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final t = _controller.value * 2 * pi;
 
-            // Lemniscate of Bernoulli:
-            //   x(t) = cos(t) / (1 + sin²(t))          ∈ [-1, +1]
-            //   y(t) = sin(t)·cos(t) / (1 + sin²(t))   ∈ [-0.5, +0.5]
-            final denom = 1 + pow(sin(t), 2);
-            final fx = cos(t) / denom; // -1..1
-            final fy = sin(t) * cos(t) / denom; // -0.5..0.5
+              // Lemniscate of Bernoulli:
+              //   x(t) = cos(t) / (1 + sin²(t))          ∈ [-1, +1]
+              //   y(t) = sin(t)·cos(t) / (1 + sin²(t))   ∈ [-0.5, +0.5]
+              final denom = 1 + pow(sin(t), 2);
+              final fx = cos(t) / denom; // -1..1
+              final fy = sin(t) * cos(t) / denom; // -0.5..0.5
 
-            // Map to arena pixel coordinates:
-            // fx [-1,1] → [margin, areaW - margin - size]
-            // fy [-0.5,0.5] → [margin, areaH - margin - size]
-            const margin = 10.0;
-            final rangeW = areaW - size - 2 * margin;
-            final rangeH = areaH - size - 2 * margin;
+              // Map to arena pixel coordinates:
+              // fx [-1,1] → [margin, areaW - margin - size]
+              // fy [-0.5,0.5] → [margin, areaH - margin - size]
+              const margin = 10.0;
+              final rangeW = areaW - size - 2 * margin;
+              final rangeH = areaH - size - 2 * margin;
 
-            final dx = margin + (rangeW / 2) * (1 + fx);
-            final dy = margin + (rangeH / 2) * (1 + fy * 2); // *2 to fill height
+              final dx = margin + (rangeW / 2) * (1 + fx);
+              final dy =
+                  margin + (rangeH / 2) * (1 + fy * 2); // *2 to fill height
 
-            // Rotation: butterfly faces its movement direction
-            final dt = 0.01;
-            final t2 = t + dt;
-            final denom2 = 1 + pow(sin(t2), 2);
-            final fx2 = cos(t2) / denom2;
-            final fy2 = sin(t2) * cos(t2) / denom2;
-            final angle = atan2(fy2 - fy, fx2 - fx);
+              // Rotation: butterfly faces its movement direction
+              final dt = 0.01;
+              final t2 = t + dt;
+              final denom2 = 1 + pow(sin(t2), 2);
+              final fx2 = cos(t2) / denom2;
+              final fy2 = sin(t2) * cos(t2) / denom2;
+              final angle = atan2(fy2 - fy, fx2 - fx);
 
-            return Stack(
-              children: [
-                Positioned(
-                  left: dx.clamp(margin, areaW - size - margin),
-                  top: dy.clamp(margin, areaH - size - margin),
-                  child: Transform.rotate(
-                    angle: angle,
-                    child: child,
+              return Stack(
+                children: [
+                  Positioned(
+                    left: dx.clamp(margin, areaW - size - margin),
+                    top: dy.clamp(margin, areaH - size - margin),
+                    child: Transform.rotate(angle: angle, child: child),
                   ),
-                ),
-              ],
-            );
-          },
-          child: SizedBox(
-            width: size,
-            height: size,
-            child: const _PaintedButterfly(),
+                ],
+              );
+            },
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: const _PaintedButterfly(),
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
 
@@ -132,9 +134,10 @@ class _PaintedButterflyState extends State<_PaintedButterfly>
       vsync: this,
       duration: const Duration(milliseconds: 250),
     )..repeat(reverse: true);
-    _flapAnim = Tween<double>(begin: 1.0, end: 0.25).animate(
-      CurvedAnimation(parent: _flapCtrl, curve: Curves.easeInOut),
-    );
+    _flapAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.25,
+    ).animate(CurvedAnimation(parent: _flapCtrl, curve: Curves.easeInOut));
   }
 
   @override

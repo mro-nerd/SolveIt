@@ -1,79 +1,99 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 
 class EyeContactProvider extends ChangeNotifier {
+  // ── Configuration ───────────────────────────────────────────────────────
+  /// Maximum yaw angle (degrees) that maps to the butterfly at the screen edge.
+  /// ML Kit typically returns ±30° for head turns on a phone-sized screen.
+  static const double _maxYaw = 25.0;
+
+  /// Grace period in seconds after session start where frames are not scored.
+  static const int _graceSeconds = 2;
+
   // ── State ────────────────────────────────────────────────────────────────
   bool _sessionActive = false;
   double _score = 0.0;
-  bool _gazeAligned = false;
   int _sessionDurationSeconds = 30;
-  int _alignedFrameCount = 0;
   int _totalFrameCount = 0;
-  String _lastButterflyDirection = 'right';
+  double _scoreSum = 0.0;
+
+  /// Butterfly's current normalized X position [-1, +1].
+  double _butterflyX = 0.0;
+
+  /// Child's latest smoothed yaw angle (degrees).
+  double _gazeYaw = 0.0;
+
+  /// Timestamp when the session started (for grace period).
+  DateTime? _sessionStart;
 
   // ── Getters ──────────────────────────────────────────────────────────────
   bool get sessionActive => _sessionActive;
   double get score => _score;
-  bool get gazeAligned => _gazeAligned;
   int get sessionDurationSeconds => _sessionDurationSeconds;
-  int get alignedFrameCount => _alignedFrameCount;
   int get totalFrameCount => _totalFrameCount;
-  String get lastButterflyDirection => _lastButterflyDirection;
+
+  /// Number of frames that scored ≥ 0.5 (i.e. "mostly aligned").
+  int get alignedFrameCount => _alignedFrameCount;
+  int _alignedFrameCount = 0;
+
+  /// Whether we are still in the grace period.
+  bool get inGracePeriod {
+    if (_sessionStart == null) return false;
+    return DateTime.now().difference(_sessionStart!).inSeconds < _graceSeconds;
+  }
 
   // ── Methods ──────────────────────────────────────────────────────────────
 
-  /// Tracks which side of the screen the butterfly is currently on.
-  /// Called by [ButterflyAnimation.onDirectionUpdate].
-  void updateButterflyDirection(String direction) {
-    if (_lastButterflyDirection == direction) return;
-    _lastButterflyDirection = direction;
-    notifyListeners();
+  /// Updates the butterfly's normalized X position.
+  /// Called by [ButterflyAnimation.onPositionUpdate] on every animation frame.
+  void updateButterflyPosition(double normalizedX) {
+    _butterflyX = normalizedX;
+    // No notifyListeners — this fires at 60 Hz; scoring happens in recordGazeYaw.
   }
 
-  /// Called by [EyeTrackingOverlay.onGazeDirection] on each sampled frame.
-  /// [gazeDir] is `'left'`, `'right'`, or `'center'`.
-  /// A frame counts as aligned when the gaze direction matches the butterfly
-  /// direction (center is never aligned — the butterfly is always on one side).
-  void recordGazeDirection(String gazeDir) {
-    final aligned = gazeDir == _lastButterflyDirection;
-    recordFrame(aligned);
+  /// Called by [EyeTrackingOverlay.onGazeYaw] with the smoothed yaw angle.
+  /// Scores the frame and updates the running average.
+  void recordGazeYaw(double yawAngle) {
+    _gazeYaw = yawAngle;
+    if (!_sessionActive) return;
+    if (inGracePeriod) return; // Don't score during grace period.
+
+    // ── Map butterfly X to an expected yaw angle ──
+    // butterflyX ∈ [-1, +1]  →  expectedYaw ∈ [-_maxYaw, +_maxYaw]
+    final expectedYaw = _butterflyX * _maxYaw;
+
+    // ── Per-frame score: how close is the gaze to the expected yaw? ──
+    // Score = 1.0 when perfectly aligned, drops linearly to 0.0 at ±_maxYaw deviation.
+    final deviation = (yawAngle - expectedYaw).abs();
+    final frameScore = max(0.0, 1.0 - (deviation / _maxYaw));
+
+    _totalFrameCount++;
+    _scoreSum += frameScore;
+    if (frameScore >= 0.5) _alignedFrameCount++;
+
+    // Running average score.
+    _score = (_scoreSum / _totalFrameCount).clamp(0.0, 1.0);
+
+    notifyListeners();
   }
 
   /// Starts a new session, optionally overriding the duration.
   void startSession({int durationSeconds = 30}) {
     _sessionDurationSeconds = durationSeconds;
     _sessionActive = true;
-    _gazeAligned = false;
-    _alignedFrameCount = 0;
     _totalFrameCount = 0;
+    _alignedFrameCount = 0;
+    _scoreSum = 0.0;
     _score = 0.0;
+    _gazeYaw = 0.0;
+    _butterflyX = 0.0;
+    _sessionStart = DateTime.now();
     notifyListeners();
   }
 
   /// Ends the current session and freezes the final score.
   void endSession() {
     _sessionActive = false;
-    _gazeAligned = false;
-    notifyListeners();
-  }
-
-  /// Called once per camera frame.
-  /// [wasAligned] — true if the child's gaze matched the butterfly direction.
-  void recordFrame(bool wasAligned) {
-    if (!_sessionActive) return;
-
-    _totalFrameCount++;
-    if (wasAligned) {
-      _alignedFrameCount++;
-      _gazeAligned = true;
-    } else {
-      _gazeAligned = false;
-    }
-
-    // Score = proportion of aligned frames, clamped to [0.0, 1.0].
-    _score = _totalFrameCount > 0
-        ? (_alignedFrameCount / _totalFrameCount).clamp(0.0, 1.0)
-        : 0.0;
-
     notifyListeners();
   }
 
@@ -81,11 +101,13 @@ class EyeContactProvider extends ChangeNotifier {
   void reset() {
     _sessionActive = false;
     _score = 0.0;
-    _gazeAligned = false;
     _sessionDurationSeconds = 30;
-    _alignedFrameCount = 0;
     _totalFrameCount = 0;
-    _lastButterflyDirection = 'right';
+    _alignedFrameCount = 0;
+    _scoreSum = 0.0;
+    _gazeYaw = 0.0;
+    _butterflyX = 0.0;
+    _sessionStart = null;
     notifyListeners();
   }
 }
