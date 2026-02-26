@@ -45,8 +45,13 @@ app.*.map.json
 /android/app/release
 
 #more 
+.env
 .envs
 .dart_tool/
 .packages
 build/
 pubspec.lock
+
+# Firebase credentials
+**/android/app/google-services.json
+**/ios/Runner/GoogleService-Info.plist
