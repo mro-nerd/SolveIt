@@ -1,4 +1,5 @@
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/emotion_assessment/emotion_assessment_screen.dart';
 import 'package:ace_mobile/features/eye_contact/eye_contact_screen.dart';
 import 'package:ace_mobile/features/imitation/imitation_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
@@ -159,16 +160,15 @@ class _homeScreenState extends State<homeScreen> {
                             ),
                       ),
                       DiagnosisCard(
-                        title: 'Copy the\nPose',
-                        icon: Icons.accessibility_new,
+                        title: 'Sensory',
+                        icon: Icons.sensors,
                         onTap: () =>
                             Navigator.of(context, rootNavigator: true).push(
                               MaterialPageRoute(
-                                builder: (_) => const ImitationScreen(),
+                                builder: (_) => const EmotionAssessmentScreen(),
                               ),
                             ),
                       ),
-                      DiagnosisCard(title: 'Sensory', icon: Icons.sensors),
                       DiagnosisCard(
                         title: 'Social\nSkills',
                         icon: Icons.people,

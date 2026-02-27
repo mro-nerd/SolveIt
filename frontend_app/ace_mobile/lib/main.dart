@@ -1,6 +1,7 @@
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/assessment/providers/assessment_provider.dart';
 import 'package:ace_mobile/features/assessment/providers/mchat_ai_provider.dart';
+import 'package:ace_mobile/features/emotion_assessment/emotion_assessment_provider.dart';
 import 'package:ace_mobile/features/eye_contact/eye_contact_provider.dart';
 import 'package:ace_mobile/features/eye_contact/eye_contact_screen.dart';
 import 'package:ace_mobile/features/imitation/imitation_provider.dart';
@@ -40,7 +41,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AssessmentProvider()),
         ChangeNotifierProvider(create: (_) => MchatAiProvider()),
         ChangeNotifierProvider(create: (_) => EyeContactProvider()),
-        ChangeNotifierProvider(create: (_) => ImitationProvider()),
+        ChangeNotifierProvider(create: (_) => EmotionAssessmentProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -48,10 +49,7 @@ class MyApp extends StatelessWidget {
         theme: appTheme.lightTheme,
         // SplashScreen is the entry point; it hands off to AuthWrapper
         home: const SplashScreen(),
-        routes: {
-          '/eye-contact': (_) => const EyeContactScreen(),
-          '/imitation': (_) => const ImitationScreen(),
-        },
+        routes: {'/eye-contact': (_) => const EyeContactScreen()},
       ),
     );
   }
