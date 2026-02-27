@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-
+import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -47,10 +47,12 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
   }
 
   Future<void> _initialize() async {
+    print('INIT STARTED');
     try {
       // Load TFLite model
       _interpreter =
-          await Interpreter.fromAsset('movenet.tflite');
+          await Interpreter.fromAsset('assets/models/movenet.tflite');
+      print('INTERPRETER LOADED');
 
       // Initialize front camera
       final cameras = await availableCameras();
@@ -61,10 +63,11 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
 
       _cameraController = CameraController(
         frontCamera,
-        ResolutionPreset.low,
+        ResolutionPreset.medium,
         enableAudio: false,
       );
       await _cameraController!.initialize();
+      print('CAMERA READY');
 
       // Start periodic inference every 500ms
       _timer = Timer.periodic(const Duration(milliseconds: 500), (_) {
@@ -76,9 +79,11 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
   }
 
   Future<void> _captureAndInfer() async {
+    print('_captureAndInfer CALLED — processing=$_isProcessing controller=${_cameraController != null} initialized=${_cameraController?.value.isInitialized}');
     if (_isProcessing ||
         _cameraController == null ||
         !_cameraController!.value.isInitialized) {
+      print('_captureAndInfer SKIPPED');
       return;
     }
     _isProcessing = true;
@@ -93,21 +98,20 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
       if (original == null) throw Exception('Failed to decode image');
       final resized = img.copyResize(original, width: 256, height: 256);
 
-      // 3. Convert pixel values to float (MoveNet expects float input)
-      final input = List.generate(1, (_) =>
-        List.generate(256, (_) =>
-          List.generate(256, (_) =>
-            List.filled(3, 0.0))));
+      // 3. Convert pixel values to uint8 buffer [1, 256, 256, 3]
+      final input = Uint8List(1 * 256 * 256 * 3);
+      int pixelIndex = 0;
       for (int y = 0; y < 256; y++) {
         for (int x = 0; x < 256; x++) {
           final pixel = resized.getPixel(x, y);
-          input[0][y][x][0] = pixel.r.toInt().toDouble();
-          input[0][y][x][1] = pixel.g.toInt().toDouble();
-          input[0][y][x][2] = pixel.b.toInt().toDouble();
+          input[pixelIndex++] = pixel.r.toInt();
+          input[pixelIndex++] = pixel.g.toInt();
+          input[pixelIndex++] = pixel.b.toInt();
         }
       }
 
-      // 4. Run inference — output shape [1, 1, 17, 3]
+      // 4. Reshape to [1, 256, 256, 3] and run inference
+      final inputReshaped = input.reshape([1, 256, 256, 3]);
       final output = List.generate(
         1,
         (_) => List.generate(
@@ -115,25 +119,28 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
           (_) => List.generate(17, (_) => List.filled(3, 0.0)),
         ),
       );
-      _interpreter!.run(input, output);
+      _interpreter!.run(inputReshaped, output);
 
       // 5. Extract keypoints from output: each is [y, x, confidence]
       final keypoints = output[0][0]; // 17 keypoints, each [y, x, conf]
+      print('=== KEYPOINTS ===');
+      for (int i = 0; i < 17; i++) {
+        print('kp[$i] conf: ${keypoints[i][2]}');
+      }
       List<double> _kp(int idx) => [
             (keypoints[idx][0] as double),
             (keypoints[idx][1] as double),
             (keypoints[idx][2] as double),
           ];
 
-      // 6. Check confidence > 0.3 for all required keypoints
+      // 6. Only require shoulder confidence (elbows/wrists often too low)
       final requiredIndices = [
         _kLeftShoulder, _kRightShoulder,
-        _kLeftElbow, _kRightElbow,
-        _kLeftWrist, _kRightWrist,
       ];
       final allConfident = requiredIndices.every(
-        (i) => _kp(i)[2] > 0.2,
+        (i) => _kp(i)[2] > 0.15,
       );
+      print('allConfident: $allConfident');
       if (!allConfident) {
         _isProcessing = false;
         return;
@@ -163,9 +170,12 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
         ),
       };
 
+      print('angles: $angles');
+
       // 8. Fire callback
       widget.onAnglesDetected(angles);
     } catch (e) {
+      print('POSE ERROR: $e');
       widget.onError(e.toString());
     } finally {
       _isProcessing = false;

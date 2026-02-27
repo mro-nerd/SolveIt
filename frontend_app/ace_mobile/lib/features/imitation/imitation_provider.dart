@@ -27,7 +27,9 @@ class ImitationProvider extends ChangeNotifier {
     final allMatched = thresholds.entries.every((entry) {
       final detected = detectedAngles[entry.key];
       if (detected == null) return false;
-      return (detected - entry.value).abs() <= 25;
+      final diff = (detected - entry.value).abs();
+      print('  ${entry.key}: detected=${detected.toStringAsFixed(1)} expected=${entry.value} diff=${diff.toStringAsFixed(1)} ${diff <= 40 ? "✅" : "❌"}');
+      return diff <= 40;
     });
 
     if (allMatched) {

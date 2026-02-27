@@ -30,12 +30,10 @@ class PoseReference {
     PoseReference(
       name: 'Wave',
       emoji: '👋',
-      instruction: 'Raise one arm out to your side!',
+      instruction: 'Raise your right arm out to your side!',
       angleThresholds: {
-        'right_shoulder': 90,
-        'left_shoulder': 10,
-        'right_elbow': 170,
-        'left_elbow': 30,
+        'right_shoulder': 80,
+        'right_elbow': 150,
       },
     ),
     PoseReference(
