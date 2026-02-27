@@ -1,6 +1,7 @@
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/emotion_assessment/emotion_assessment_screen.dart';
 import 'package:ace_mobile/features/eye_contact/eye_contact_screen.dart';
+import 'package:ace_mobile/features/imitation/imitation_provider.dart';
 import 'package:ace_mobile/features/imitation/imitation_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:ace_mobile/features/profile/profile_screen.dart';
@@ -166,6 +167,19 @@ class _homeScreenState extends State<homeScreen> {
                             Navigator.of(context, rootNavigator: true).push(
                               MaterialPageRoute(
                                 builder: (_) => const EmotionAssessmentScreen(),
+                              ),
+                            ),
+                      ),
+                      DiagnosisCard(
+                        title: 'Imitation',
+                        icon: Icons.accessibility_new,
+                        onTap: () =>
+                            Navigator.of(context, rootNavigator: true).push(
+                              MaterialPageRoute(
+                                builder: (_) => ChangeNotifierProvider(
+                                  create: (_) => ImitationProvider(),
+                                  child: const ImitationScreen(),
+                                ),
                               ),
                             ),
                       ),

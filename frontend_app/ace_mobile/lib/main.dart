@@ -42,6 +42,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MchatAiProvider()),
         ChangeNotifierProvider(create: (_) => EyeContactProvider()),
         ChangeNotifierProvider(create: (_) => EmotionAssessmentProvider()),
+        ChangeNotifierProvider(create: (_) => ImitationProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -49,7 +50,10 @@ class MyApp extends StatelessWidget {
         theme: appTheme.lightTheme,
         // SplashScreen is the entry point; it hands off to AuthWrapper
         home: const SplashScreen(),
-        routes: {'/eye-contact': (_) => const EyeContactScreen()},
+        routes: {
+          '/eye-contact': (_) => const EyeContactScreen(),
+          '/imitation': (_) => const ImitationScreen(),
+        },
       ),
     );
   }
