@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -72,6 +70,13 @@ class _ImitationScreenState extends State<ImitationScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // Show 3-2-1 countdown overlay
+    if (!provider.isReady) {
+      return _buildReadyCountdown(provider);
+    }
+
+    final timerFraction =
+        provider.secondsRemaining / ImitationProvider.poseTimeLimit;
     final timerColor = provider.secondsRemaining <= 3
         ? Colors.red
         : const Color(0xFF6C63FF);
@@ -84,33 +89,52 @@ class _ImitationScreenState extends State<ImitationScreen> {
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
           color: const Color(0xFF6C63FF).withValues(alpha: 0.08),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Pose counter
               Text(
-                'Pose ${provider.currentPoseIndex + 1} of ${provider.poses.length}',
+                'Pose ${provider.currentPoseIndex + 1}/${provider.poses.length}',
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF6C63FF),
                 ),
               ),
-              // Countdown timer
+              const Spacer(),
+              // Best match badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: timerColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: timerColor, width: 2),
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Text(
+                  'Best: ${provider.bestMatchPercent.toInt()}%',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.amber,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Circular timer
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Icon(Icons.timer_rounded, size: 18, color: timerColor),
-                    const SizedBox(width: 4),
+                    CircularProgressIndicator(
+                      value: timerFraction,
+                      strokeWidth: 4,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: AlwaysStoppedAnimation(timerColor),
+                    ),
                     Text(
-                      '${provider.secondsRemaining}s',
+                      '${provider.secondsRemaining}',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: timerColor,
                       ),
@@ -122,6 +146,29 @@ class _ImitationScreenState extends State<ImitationScreen> {
           ),
         ),
 
+        // Live match progress bar
+        Container(
+          width: double.infinity,
+          height: 6,
+          color: Colors.grey.shade200,
+          alignment: Alignment.centerLeft,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: MediaQuery.of(context).size.width *
+                (provider.currentMatchPercent / 100).clamp(0.0, 1.0),
+            height: 6,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: provider.currentMatchPercent >= 70
+                    ? [Colors.green, Colors.greenAccent]
+                    : provider.currentMatchPercent >= 40
+                        ? [Colors.orange, Colors.amber]
+                        : [Colors.red.shade300, Colors.red],
+              ),
+            ),
+          ),
+        ),
+
         // Pose display card
         Expanded(
           flex: 3,
@@ -129,14 +176,14 @@ class _ImitationScreenState extends State<ImitationScreen> {
             child: SingleChildScrollView(
               child: PoseDisplay(
                 pose: pose,
-                poseMatched: provider.poseMatched,
+                poseMatched: provider.currentMatchPercent >= 70,
                 feedbackMessage: provider.feedbackMessage,
               ),
             ),
           ),
         ),
 
-        // Divider with feedback
+        // Divider with match count
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Row(
@@ -145,9 +192,9 @@ class _ImitationScreenState extends State<ImitationScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
-                  'Your turn!',
+                  '${provider.matchedFrames} hits 🎯',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Colors.grey.shade600,
                   ),
@@ -164,22 +211,27 @@ class _ImitationScreenState extends State<ImitationScreen> {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Invisible camera detector
               CameraPoseDetector(
                 onAnglesDetected: _handleAnglesDetected,
                 onError: _handleError,
               ),
-
-              // Centered feedback text
-              Text(
-                provider.feedbackMessage,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: provider.poseMatched
-                      ? Colors.green
-                      : const Color(0xFF6C63FF),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  provider.feedbackMessage,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: provider.currentMatchPercent >= 70
+                        ? Colors.green
+                        : const Color(0xFF6C63FF),
+                  ),
                 ),
               ),
             ],
@@ -189,12 +241,66 @@ class _ImitationScreenState extends State<ImitationScreen> {
     );
   }
 
+  // ─── 3-2-1 Countdown ────────────────────────────────────────────────
+
+  Widget _buildReadyCountdown(ImitationProvider provider) {
+    final pose = provider.currentPose;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            pose?.emoji ?? '',
+            style: const TextStyle(fontSize: 64),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            pose?.name ?? '',
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2D3748),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            pose?.instruction ?? '',
+            style: const TextStyle(
+              fontSize: 16,
+              color: Color(0xFF718096),
+            ),
+          ),
+          const SizedBox(height: 40),
+          // Big countdown number
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: Text(
+              provider.readyCountdown > 0
+                  ? '${provider.readyCountdown}'
+                  : 'Go!',
+              key: ValueKey(provider.readyCountdown),
+              style: TextStyle(
+                fontSize: 72,
+                fontWeight: FontWeight.w900,
+                color: provider.readyCountdown > 0
+                    ? const Color(0xFF6C63FF)
+                    : Colors.green,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── Results ──────────────────────────────────────────────────────────
 
   Widget _buildResultsScreen(ImitationProvider provider) {
     final totalPoses = provider.poses.length;
     final overallPercent = provider.poseResults.isNotEmpty
-        ? (provider.poseResults.reduce((a, b) => a + b) /
+        ? (provider.poseResults
+                    .map((r) => r.finalScore)
+                    .reduce((a, b) => a + b) /
                 provider.poseResults.length)
             .toInt()
         : 0;
@@ -209,118 +315,139 @@ class _ImitationScreenState extends State<ImitationScreen> {
                 : 0;
     final stars = List.generate(
       starCount,
-      (_) => const Text('⭐', style: TextStyle(fontSize: 36)),
+      (_) => const Text('⭐', style: TextStyle(fontSize: 40)),
     );
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
               '🎉 Great Job!',
               style: TextStyle(
-                fontSize: 36,
+                fontSize: 34,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF2D3748),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // Overall score
-            Text(
-              '${provider.score} of $totalPoses poses matched!',
-              style: const TextStyle(
-                fontSize: 20,
-                color: Color(0xFF718096),
+            // Overall score circle
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: overallPercent >= 60
+                      ? [Colors.green.shade400, Colors.green.shade700]
+                      : overallPercent >= 30
+                          ? [Colors.orange.shade400, Colors.orange.shade700]
+                          : [Colors.red.shade300, Colors.red.shade600],
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  '$overallPercent%',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Overall: $overallPercent%',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF6C63FF),
-              ),
+              '${provider.score} of $totalPoses poses matched',
+              style: const TextStyle(fontSize: 16, color: Color(0xFF718096)),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Star rating
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: stars.isEmpty
                   ? [
-                      const Text(
-                        'Keep practising! 💪',
-                        style: TextStyle(fontSize: 20),
-                      )
+                      const Text('Keep practising! 💪',
+                          style: TextStyle(fontSize: 18))
                     ]
                   : stars,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Per-pose breakdown
-            ...List.generate(
-              provider.poses.length,
-              (i) {
-                final pose = provider.poses[i];
-                final result = i < provider.poseResults.length
-                    ? provider.poseResults[i].toInt()
-                    : 0;
-                final matched = result >= 70;
-                return Container(
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: matched
-                        ? Colors.green.withValues(alpha: 0.1)
-                        : Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: matched ? Colors.green : Colors.orange,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(pose.emoji, style: const TextStyle(fontSize: 24)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          pose.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+            // Per-pose breakdown cards
+            ...provider.poseResults.map((result) {
+              final matched = result.finalScore >= 50;
+              final scoreColor = result.finalScore >= 70
+                  ? Colors.green
+                  : result.finalScore >= 40
+                      ? Colors.orange
+                      : Colors.red;
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 5),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: scoreColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: scoreColor, width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    Text(result.pose.emoji,
+                        style: const TextStyle(fontSize: 28)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            result.pose.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${result.matchedFrames} matching frames',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        '$result%',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: matched ? Colors.green : Colors.orange,
-                        ),
+                    ),
+                    // Score
+                    Text(
+                      '${result.finalScore.toInt()}%',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: scoreColor,
                       ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        matched ? Icons.check_circle : Icons.timer_outlined,
-                        color: matched ? Colors.green : Colors.orange,
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 32),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      matched ? Icons.check_circle : Icons.cancel_outlined,
+                      color: scoreColor,
+                      size: 22,
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 28),
 
             // Play Again
             SizedBox(
               width: double.infinity,
-              height: 54,
+              height: 52,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6C63FF),
@@ -340,12 +467,12 @@ class _ImitationScreenState extends State<ImitationScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
             // Go Back
             SizedBox(
               width: double.infinity,
-              height: 54,
+              height: 52,
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF6C63FF),
