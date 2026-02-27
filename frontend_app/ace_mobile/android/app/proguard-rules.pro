@@ -6,3 +6,11 @@
 -dontwarn com.google.mlkit.vision.text.devanagari.**
 -dontwarn com.google.mlkit.vision.text.japanese.**
 -dontwarn com.google.mlkit.vision.text.korean.**
+
+## --- TensorFlow Lite GPU Delegate ---
+## ML Kit references TFLite GPU classes that may not be bundled.
+## These are optional runtime dependencies for GPU acceleration.
+-dontwarn org.tensorflow.lite.gpu.**
+-keep class org.tensorflow.lite.gpu.** { *; }
+-dontwarn org.tensorflow.lite.**
+-keep class org.tensorflow.lite.** { *; }
