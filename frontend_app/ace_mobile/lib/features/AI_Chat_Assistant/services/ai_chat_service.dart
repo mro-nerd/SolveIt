@@ -31,9 +31,7 @@ Respond in Markdown.
   /// This returns a Stream of strings, so the UI can update word-by-word.
   Stream<String> getAIResponseStream(String userInput, File? image) async* {
     try {
-      List<Map<String, dynamic>> messages = [
-        {"role": "system", "content": _systemPrompt},
-      ];
+      List<Map<String, dynamic>> messages = [];
 
       if (image != null) {
         final bytes = await image.readAsBytes();
@@ -41,7 +39,7 @@ Respond in Markdown.
         messages.add({
           "role": "user",
           "content": [
-            {"type": "text", "text": userInput},
+            {"type": "text", "text": "$_systemPrompt\n\n$userInput"},
             {
               "type": "image_url",
               "image_url": {"url": "data:image/jpeg;base64,$base64Image"},
@@ -49,7 +47,7 @@ Respond in Markdown.
           ],
         });
       } else {
-        messages.add({"role": "user", "content": userInput});
+        messages.add({"role": "user", "content": "$_systemPrompt\n\n$userInput"});
       }
 
       // Step 2: Create a Request
@@ -61,7 +59,7 @@ Respond in Markdown.
           "X-Title": "ACE Parent Copilot",
         })
         ..body = jsonEncode({
-          "model": "google/gemini-2.0-flash-001",
+          "model": "google/gemma-3n-e2b-it:free",
           "messages": messages,
           "temperature": 0.7,
           "stream": true,

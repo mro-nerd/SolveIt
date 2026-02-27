@@ -13,7 +13,7 @@ import 'mchat_prompt_templates.dart';
 class MchatAiService {
   static const String _apiEndpoint =
       'https://openrouter.ai/api/v1/chat/completions';
-  static const String _model = 'google/gemini-2.0-flash-001';
+  static const String _model = 'google/gemma-3n-e2b-it:free';
   static const int _maxRetries = 3;
 
   String get _apiKey => dotenv.env['GENAI_KEY'] ?? '';
@@ -39,8 +39,7 @@ class MchatAiService {
           ..body = jsonEncode({
             'model': _model,
             'messages': [
-              {'role': 'system', 'content': systemPrompt},
-              {'role': 'user', 'content': userPrompt},
+              {'role': 'user', 'content': '$systemPrompt\n\n$userPrompt'},
             ],
             'temperature': temperature,
             'stream': true,
