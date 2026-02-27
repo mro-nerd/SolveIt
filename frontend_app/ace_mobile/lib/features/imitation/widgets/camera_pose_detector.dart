@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
+
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -50,7 +50,7 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
     try {
       // Load TFLite model
       _interpreter =
-          await Interpreter.fromAsset('assets/models/movenet.tflite');
+          await Interpreter.fromAsset('movenet.tflite');
 
       // Initialize front camera
       final cameras = await availableCameras();
@@ -93,20 +93,21 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
       if (original == null) throw Exception('Failed to decode image');
       final resized = img.copyResize(original, width: 256, height: 256);
 
-      // 3. Convert pixel values to uint8 (0–255) as required by MoveNet
-      final input = Uint8List(1 * 256 * 256 * 3);
-      int pixelIndex = 0;
+      // 3. Convert pixel values to float (MoveNet expects float input)
+      final input = List.generate(1, (_) =>
+        List.generate(256, (_) =>
+          List.generate(256, (_) =>
+            List.filled(3, 0.0))));
       for (int y = 0; y < 256; y++) {
         for (int x = 0; x < 256; x++) {
           final pixel = resized.getPixel(x, y);
-          input[pixelIndex++] = pixel.r.toInt();
-          input[pixelIndex++] = pixel.g.toInt();
-          input[pixelIndex++] = pixel.b.toInt();
+          input[0][y][x][0] = pixel.r.toInt().toDouble();
+          input[0][y][x][1] = pixel.g.toInt().toDouble();
+          input[0][y][x][2] = pixel.b.toInt().toDouble();
         }
       }
 
       // 4. Run inference — output shape [1, 1, 17, 3]
-      //    Use runForMultipleInputs to get properly typed output
       final output = List.generate(
         1,
         (_) => List.generate(
@@ -114,8 +115,7 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
           (_) => List.generate(17, (_) => List.filled(3, 0.0)),
         ),
       );
-      final outputMap = <int, Object>{0: output};
-      _interpreter!.runForMultipleInputs([input], outputMap);
+      _interpreter!.run(input, output);
 
       // 5. Extract keypoints from output: each is [y, x, confidence]
       final keypoints = output[0][0]; // 17 keypoints, each [y, x, conf]
@@ -130,10 +130,9 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
         _kLeftShoulder, _kRightShoulder,
         _kLeftElbow, _kRightElbow,
         _kLeftWrist, _kRightWrist,
-        _kLeftHip, _kRightHip,
       ];
       final allConfident = requiredIndices.every(
-        (i) => _kp(i)[2] > 0.3,
+        (i) => _kp(i)[2] > 0.2,
       );
       if (!allConfident) {
         _isProcessing = false;
@@ -153,12 +152,12 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
           _kp(_kRightWrist),
         ),
         'left_shoulder': _angleDeg(
-          _kp(_kLeftHip),
+          [_kp(_kLeftShoulder)[0] + 0.15, _kp(_kLeftShoulder)[1], 1.0],
           _kp(_kLeftShoulder),
           _kp(_kLeftElbow),
         ),
         'right_shoulder': _angleDeg(
-          _kp(_kRightHip),
+          [_kp(_kRightShoulder)[0] + 0.15, _kp(_kRightShoulder)[1], 1.0],
           _kp(_kRightShoulder),
           _kp(_kRightElbow),
         ),
