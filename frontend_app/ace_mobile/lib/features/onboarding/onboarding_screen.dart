@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ace_mobile/shared/BottomNavbar.dart';
+import 'package:ace_mobile/features/auth/role_selection_screen.dart';
 
 // ─── Data model ────────────────────────────────────────────────────────────────
 
@@ -350,7 +350,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const CustomBottomNavBar(),
+        pageBuilder: (_, __, ___) => const RoleSelectionScreen(),
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 500),

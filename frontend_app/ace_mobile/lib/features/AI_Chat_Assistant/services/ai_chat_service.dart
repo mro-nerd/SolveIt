@@ -57,11 +57,11 @@ Respond in Markdown.
         ..headers.addAll({
           "Authorization": "Bearer $_apiKey",
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://ace-app.com",
+          "HTTP-Referer": "https://ACE/solveit.com",
           "X-Title": "ACE Parent Copilot",
         })
         ..body = jsonEncode({
-          "model": "google/gemini-2.0-flash-001",
+          "model": "qwen/qwen3-4b:free",
           "messages": messages,
           "temperature": 0.7,
           "stream": true,

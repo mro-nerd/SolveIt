@@ -1,8 +1,12 @@
+import 'package:ace_mobile/features/auth/role_selection_screen.dart';
+import 'package:ace_mobile/features/doctor/doctor_bottom_navbar.dart';
 import 'package:ace_mobile/features/onboarding/onboarding_screen.dart';
+import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:ace_mobile/features/auth/loginPage.dart';
 import 'package:ace_mobile/shared/BottomNavbar.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthWrapper extends StatelessWidget {
@@ -43,7 +47,19 @@ class AuthWrapper extends StatelessWidget {
               return const OnboardingScreen();
             }
 
-            // Returning user → go straight to main app
+            // Check if role has been selected
+            final profile = context.watch<ProfileProvider>();
+
+            if (!profile.hasSelectedRole) {
+              return const RoleSelectionScreen();
+            }
+
+            // Route based on role
+            if (profile.isDoctor) {
+              return const DoctorBottomNavBar();
+            }
+
+            // Default: parent flow
             return const CustomBottomNavBar();
           },
         );
