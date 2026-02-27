@@ -47,7 +47,10 @@ Respond in Markdown.
           ],
         });
       } else {
-        messages.add({"role": "user", "content": "$_systemPrompt\n\n$userInput"});
+        messages.add({
+          "role": "user",
+          "content": "$_systemPrompt\n\n$userInput",
+        });
       }
 
       // Step 2: Create a Request
