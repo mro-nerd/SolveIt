@@ -391,12 +391,6 @@ class DiagnosisCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
           color: Colors.white,
-          border: onTap != null
-              ? Border.all(
-                  color: appColors.primary.withValues(alpha: 0.25),
-                  width: 1.5,
-                )
-              : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

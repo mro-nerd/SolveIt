@@ -1,9 +1,12 @@
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/doctor/screens/patient_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class DoctorProgressScreen extends StatefulWidget {
-  const DoctorProgressScreen({super.key});
+  final PatientData patient;
+
+  const DoctorProgressScreen({super.key, required this.patient});
 
   @override
   State<DoctorProgressScreen> createState() => _DoctorProgressScreenState();
@@ -22,15 +25,49 @@ class _DoctorProgressScreenState extends State<DoctorProgressScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Header ──
+                // ── Header with back button ──
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.arrow_back_ios_rounded,
+                        size: 20,
+                        color: appColors.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Back',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: appColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // ── Patient name & title ──
+                Text(
+                  widget.patient.name,
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Row(
                   children: [
-                    Text(
-                      'Developmental Progress',
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF111827),
+                    Flexible(
+                      child: Text(
+                        'Developmental Progress',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          color: const Color(0xFF6B7280),
+                        ),
                       ),
                     ),
                     const Spacer(),
@@ -44,6 +81,7 @@ class _DoctorProgressScreenState extends State<DoctorProgressScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.ios_share_rounded,
@@ -142,12 +180,15 @@ class _DoctorProgressScreenState extends State<DoctorProgressScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            'Score: 78',
-                            style: GoogleFonts.poppins(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF111827),
+                          Flexible(
+                            child: Text(
+                              'Score: 78',
+                              style: GoogleFonts.poppins(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF111827),
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 12),

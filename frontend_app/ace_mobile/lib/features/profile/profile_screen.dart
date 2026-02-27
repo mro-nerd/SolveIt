@@ -1,5 +1,6 @@
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/auth/auth_wrapper.dart';
+import 'package:ace_mobile/features/auth/role_selection_screen.dart';
 import 'package:ace_mobile/features/profile/privacy_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -103,6 +104,21 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
       );
     }
+  }
+
+  // ── Switch role ────────────────────────────────────────────────────────────
+  void _switchRole() {
+    final profile = context.read<ProfileProvider>();
+    profile.updateUserRole('');
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const RoleSelectionScreen(),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+      (route) => false,
+    );
   }
 
   // ── Sign out ──────────────────────────────────────────────────────────────
@@ -525,6 +541,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                             label: 'Help & Support',
                             color: const Color(0xFFF97316),
                             onTap: () {},
+                          ),
+                          _divider(),
+                          _OptionTile(
+                            icon: Icons.swap_horiz_rounded,
+                            label: 'Sign in as Doctor',
+                            color: const Color(0xFF7C3AED),
+                            onTap: () => _switchRole(),
                           ),
                           _divider(),
                           _OptionTile(

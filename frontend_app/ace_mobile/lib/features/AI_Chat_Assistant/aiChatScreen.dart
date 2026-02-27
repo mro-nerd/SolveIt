@@ -1,3 +1,4 @@
+import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ace_mobile/core/constants.dart';
@@ -10,8 +11,12 @@ class AIChatScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final profileProvider = Provider.of<ProfileProvider>(
+      context,
+      listen: false,
+    );
     return ChangeNotifierProvider(
-      create: (_) => AIChatProvider(),
+      create: (_) => AIChatProvider(profileProvider),
       child: const _AIChatScreenContent(),
     );
   }
@@ -140,6 +145,19 @@ class _AIChatScreenContentState extends State<_AIChatScreenContent> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context, Color primary) {
+    final profile = Provider.of<ProfileProvider>(context, listen: false);
+    final isDoctor = profile.isDoctor;
+    final childName = profile.childName;
+
+    final title = isDoctor
+        ? 'ACE Clinical Assistant'
+        : childName.isNotEmpty
+        ? "$childName's Assistant"
+        : 'ACE Parent Copilot';
+    final subtitle = isDoctor
+        ? 'CLINICAL ASSISTANT • ONLINE'
+        : 'PARENT COPILOT • ONLINE';
+
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -151,16 +169,16 @@ class _AIChatScreenContentState extends State<_AIChatScreenContent> {
       title: Column(
         children: [
           Text(
-            "Diego's Assistant",
+            title,
             style: TextStyle(
               color: primary,
               fontWeight: FontWeight.bold,
               fontSize: 18,
             ),
           ),
-          const Text(
-            "PARENT COPILOT • ONLINE",
-            style: TextStyle(
+          Text(
+            subtitle,
+            style: const TextStyle(
               color: Colors.green,
               fontSize: 9,
               fontWeight: FontWeight.bold,

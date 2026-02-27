@@ -139,7 +139,7 @@ class DoctorDashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
-                  height: 100,
+                  height: 110,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: const [

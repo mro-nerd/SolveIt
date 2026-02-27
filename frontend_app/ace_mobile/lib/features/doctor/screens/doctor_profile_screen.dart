@@ -1,8 +1,11 @@
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/auth/auth_wrapper.dart';
+import 'package:ace_mobile/features/auth/role_selection_screen.dart';
+import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 class DoctorProfileScreen extends StatelessWidget {
   const DoctorProfileScreen({super.key});
@@ -180,7 +183,60 @@ class DoctorProfileScreen extends StatelessWidget {
                   icon: Icons.help_outline_rounded,
                   title: 'Help & Support',
                 ),
-                const SizedBox(height: 32),
+                // ── Switch Role ──
+                GestureDetector(
+                  onTap: () {
+                    final profile = Provider.of<ProfileProvider>(
+                      context,
+                      listen: false,
+                    );
+                    profile.updateUserRole('');
+                    Navigator.of(
+                      context,
+                      rootNavigator: true,
+                    ).pushAndRemoveUntil(
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) =>
+                            const RoleSelectionScreen(),
+                        transitionsBuilder: (_, anim, __, child) =>
+                            FadeTransition(opacity: anim, child: child),
+                        transitionDuration: const Duration(milliseconds: 400),
+                      ),
+                      (route) => false,
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.swap_horiz_rounded,
+                          color: Color(0xFF7C3AED),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Sign in as Parent',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF7C3AED),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
 
                 // ── Log Out ──
                 GestureDetector(

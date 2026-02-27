@@ -1,9 +1,12 @@
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/doctor/screens/patient_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class DoctorTherapyPlanScreen extends StatefulWidget {
-  const DoctorTherapyPlanScreen({super.key});
+  final PatientData patient;
+
+  const DoctorTherapyPlanScreen({super.key, required this.patient});
 
   @override
   State<DoctorTherapyPlanScreen> createState() =>
@@ -23,13 +26,36 @@ class _DoctorTherapyPlanScreenState extends State<DoctorTherapyPlanScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Header ──
+                // ── Header with back button ──
                 Row(
                   children: [
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.arrow_back_ios_rounded,
+                            size: 20,
+                            color: appColors.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Back',
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: appColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
                     Text(
                       'Therapy Plan',
                       style: GoogleFonts.poppins(
-                        fontSize: 22,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: const Color(0xFF111827),
                       ),
@@ -65,64 +91,78 @@ class _DoctorTherapyPlanScreenState extends State<DoctorTherapyPlanScreen> {
                               color: const Color(0xFFE8F4F0),
                               borderRadius: BorderRadius.circular(18),
                             ),
-                            child: Icon(
-                              Icons.person,
-                              size: 28,
-                              color: appColors.primary,
+                            child: Center(
+                              child: Text(
+                                widget.patient.name
+                                    .split(' ')
+                                    .map((n) => n[0])
+                                    .join(),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: appColors.primary,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 14),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Patient',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  color: const Color(0xFF9CA3AF),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Patient',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    color: const Color(0xFF9CA3AF),
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                'Liam Johnson',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF111827),
+                                Text(
+                                  widget.patient.name,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF111827),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFF059669,
-                                      ).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      'Active',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF059669),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(
+                                          0xFF059669,
+                                        ).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        widget.patient.status,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF059669),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Since Jan 2024',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 11,
-                                      color: const Color(0xFF9CA3AF),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        'Since ${widget.patient.since}',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          color: const Color(0xFF9CA3AF),
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -162,11 +202,15 @@ class _DoctorTherapyPlanScreenState extends State<DoctorTherapyPlanScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      Text(
-                                        'Current\nLevel',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          color: const Color(0xFF6B7280),
+                                      Flexible(
+                                        child: Text(
+                                          'Current\nLevel',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11,
+                                            color: const Color(0xFF6B7280),
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 2,
                                         ),
                                       ),
                                     ],

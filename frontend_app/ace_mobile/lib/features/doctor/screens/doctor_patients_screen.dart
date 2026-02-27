@@ -1,4 +1,5 @@
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/doctor/screens/patient_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -14,8 +15,8 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
   String _searchQuery = '';
   String _selectedFilter = 'All';
 
-  final List<_PatientData> _patients = [
-    _PatientData(
+  final List<PatientData> _patients = [
+    PatientData(
       name: 'Liam Johnson',
       age: 5,
       diagnosis: 'ASD Level 1',
@@ -23,7 +24,7 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
       status: 'Active',
       since: 'Jan 2024',
     ),
-    _PatientData(
+    PatientData(
       name: 'Emma Wilson',
       age: 4,
       diagnosis: 'ADHD Combined',
@@ -31,7 +32,7 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
       status: 'Active',
       since: 'Mar 2024',
     ),
-    _PatientData(
+    PatientData(
       name: 'Noah Davis',
       age: 6,
       diagnosis: 'ASD Level 2',
@@ -39,7 +40,7 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
       status: 'Active',
       since: 'Jun 2023',
     ),
-    _PatientData(
+    PatientData(
       name: 'Olivia Brown',
       age: 3,
       diagnosis: 'Speech Delay',
@@ -47,7 +48,7 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
       status: 'Inactive',
       since: 'Sep 2024',
     ),
-    _PatientData(
+    PatientData(
       name: 'Lucas Martinez',
       age: 7,
       diagnosis: 'ASD Level 1',
@@ -55,7 +56,7 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
       status: 'Active',
       since: 'Nov 2023',
     ),
-    _PatientData(
+    PatientData(
       name: 'Sophia Lee',
       age: 5,
       diagnosis: 'Sensory Processing',
@@ -65,7 +66,7 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
     ),
   ];
 
-  List<_PatientData> get _filteredPatients {
+  List<PatientData> get _filteredPatients {
     return _patients.where((p) {
       final matchesSearch = p.name.toLowerCase().contains(
         _searchQuery.toLowerCase(),
@@ -113,6 +114,7 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.add, color: Colors.white, size: 18),
                         const SizedBox(width: 4),
@@ -221,7 +223,18 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final patient = _filteredPatients[index];
-                    return _PatientCard(patient: patient);
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                PatientDetailScreen(patient: patient),
+                          ),
+                        );
+                      },
+                      child: _PatientCard(patient: patient),
+                    );
                   },
                 ),
               ),
@@ -233,30 +246,10 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
   }
 }
 
-// ── Patient Data Model ────────────────────────────────────────────────────────
-
-class _PatientData {
-  final String name;
-  final int age;
-  final String diagnosis;
-  final String lastVisit;
-  final String status;
-  final String since;
-
-  const _PatientData({
-    required this.name,
-    required this.age,
-    required this.diagnosis,
-    required this.lastVisit,
-    required this.status,
-    required this.since,
-  });
-}
-
 // ── Patient Card ──────────────────────────────────────────────────────────────
 
 class _PatientCard extends StatelessWidget {
-  final _PatientData patient;
+  final PatientData patient;
 
   const _PatientCard({required this.patient});
 
@@ -307,15 +300,18 @@ class _PatientCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      patient.name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF111827),
+                    Flexible(
+                      child: Text(
+                        patient.name,
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF111827),
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -347,19 +343,21 @@ class _PatientCard extends StatelessWidget {
                     fontSize: 12,
                     color: const Color(0xFF6B7280),
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Last visit: ${patient.lastVisit} • Since ${patient.since}',
+                  'Last visit: ${patient.lastVisit}',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     color: const Color(0xFF9CA3AF),
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
         ],
       ),
