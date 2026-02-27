@@ -11,6 +11,7 @@ class ProfileProvider extends ChangeNotifier {
   static const _kChildGender = 'profile_child_gender';
   static const _kChildDiagnosis = 'profile_child_diagnosis';
   static const _kPhotoPath = 'profile_photo_path';
+  static const _kUserRole = 'user_role';
 
   // ── State ─────────────────────────────────────────────────────────────────
   String parentName = '';
@@ -20,6 +21,7 @@ class ProfileProvider extends ChangeNotifier {
   String childGender = '';
   String childDiagnosis = '';
   String? photoPath; // local file path after image-pick
+  String userRole = ''; // 'parent' | 'doctor' | ''
 
   bool _loaded = false;
   bool get isLoaded => _loaded;
@@ -34,6 +36,7 @@ class ProfileProvider extends ChangeNotifier {
     childGender = prefs.getString(_kChildGender) ?? '';
     childDiagnosis = prefs.getString(_kChildDiagnosis) ?? '';
     photoPath = prefs.getString(_kPhotoPath);
+    userRole = prefs.getString(_kUserRole) ?? '';
     _loaded = true;
     notifyListeners();
   }
@@ -85,6 +88,16 @@ class ProfileProvider extends ChangeNotifier {
     await _save(_kPhotoPath, path);
     notifyListeners();
   }
+
+  Future<void> updateUserRole(String role) async {
+    userRole = role;
+    await _save(_kUserRole, role);
+    notifyListeners();
+  }
+
+  bool get hasSelectedRole => userRole.isNotEmpty;
+  bool get isDoctor => userRole == 'doctor';
+  bool get isParent => userRole == 'parent';
 
   // ── Avatar widget helper ──────────────────────────────────────────────────
   ImageProvider get avatarImage {

@@ -58,7 +58,7 @@ Respond in Markdown.
         ..headers.addAll({
           "Authorization": "Bearer $_apiKey",
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://ace-app.com",
+          "HTTP-Referer": "https://ACE/solveit.com",
           "X-Title": "ACE Parent Copilot",
         })
         ..body = jsonEncode({
