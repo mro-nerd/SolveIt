@@ -21,10 +21,8 @@ class PoseReference {
       emoji: '🙌',
       instruction: 'Raise both arms above your head!',
       angleThresholds: {
-        'left_shoulder': 170,
-        'right_shoulder': 170,
-        'left_elbow': 160,
-        'right_elbow': 160,
+        'left_shoulder': 140,
+        'right_shoulder': 140,
       },
     ),
     PoseReference(
@@ -33,18 +31,15 @@ class PoseReference {
       instruction: 'Raise your right arm out to your side!',
       angleThresholds: {
         'right_shoulder': 80,
-        'right_elbow': 150,
       },
     ),
     PoseReference(
-      name: 'Clap',
-      emoji: '👏',
-      instruction: 'Stretch both arms forward!',
+      name: 'Namaste',
+      emoji: '🙏',
+      instruction: 'Bring both hands together in front of your chest!',
       angleThresholds: {
-        'left_shoulder': 80,
-        'right_shoulder': 80,
-        'left_elbow': 170,
-        'right_elbow': 170,
+        'left_shoulder': 50,
+        'right_shoulder': 50,
       },
     ),
   ];

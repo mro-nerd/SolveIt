@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'models/pose_reference.dart';
 
@@ -9,40 +10,106 @@ class ImitationProvider extends ChangeNotifier {
   bool sessionComplete = false;
   int score = 0;
   String feedbackMessage = 'Get ready!';
-  int holdDurationSeconds = 2;
-  int _holdCounter = 0;
+
+  // Timer
+  static const int poseTimeLimit = 10; // seconds per pose
+  int secondsRemaining = poseTimeLimit;
+  Timer? _countdownTimer;
+
+  // Best match tracking per pose
+  double _bestMatchPercent = 0;
+  final List<double> poseResults = []; // best % for each pose
 
   PoseReference? get currentPose =>
       poses.isNotEmpty ? poses[currentPoseIndex] : null;
 
   void loadPoses() {
     poses = PoseReference.simplePoses;
+    _startTimer();
     notifyListeners();
   }
 
+  void _startTimer() {
+    _countdownTimer?.cancel();
+    secondsRemaining = poseTimeLimit;
+    _bestMatchPercent = 0;
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      secondsRemaining--;
+      if (secondsRemaining <= 0) {
+        _timeUp();
+      }
+      notifyListeners();
+    });
+  }
+
+  void _timeUp() {
+    _countdownTimer?.cancel();
+    if (!poseMatched) {
+      // Record best match for this pose
+      poseResults.add(_bestMatchPercent);
+      if (_bestMatchPercent >= 70) {
+        score++;
+        feedbackMessage = 'Good effort! ${_bestMatchPercent.toInt()}% 👍';
+      } else {
+        feedbackMessage = 'Time\'s up! ${_bestMatchPercent.toInt()}% ⏰';
+      }
+      notifyListeners();
+      // Auto-advance after a brief delay
+      Timer(const Duration(milliseconds: 1500), () {
+        nextPose();
+      });
+    }
+  }
+
   void evaluatePose(Map<String, double> detectedAngles) {
-    if (currentPose == null) return;
+    if (currentPose == null || poseMatched) return;
 
     final thresholds = currentPose!.angleThresholds;
-    final allMatched = thresholds.entries.every((entry) {
-      final detected = detectedAngles[entry.key];
-      if (detected == null) return false;
-      final diff = (detected - entry.value).abs();
-      print('  ${entry.key}: detected=${detected.toStringAsFixed(1)} expected=${entry.value} diff=${diff.toStringAsFixed(1)} ${diff <= 40 ? "✅" : "❌"}');
-      return diff <= 40;
-    });
 
-    if (allMatched) {
-      _holdCounter++;
-      feedbackMessage = 'Hold it...';
-      if (_holdCounter >= holdDurationSeconds * 2) {
-        poseMatched = true;
-        score++;
-        feedbackMessage = 'Amazing! 🎉';
+    // Calculate match percentage for each joint
+    double totalMatch = 0;
+    int jointCount = 0;
+    bool allWithinTolerance = true;
+
+    for (final entry in thresholds.entries) {
+      final detected = detectedAngles[entry.key];
+      if (detected == null) {
+        allWithinTolerance = false;
+        continue;
       }
+      final diff = (detected - entry.value).abs();
+      // Match % = 100 when diff=0, 0 when diff>=90
+      final matchPct = ((1.0 - (diff / 90.0)) * 100).clamp(0, 100).toDouble();
+      totalMatch += matchPct;
+      jointCount++;
+      if (diff > 40) allWithinTolerance = false;
+
+      print('  ${entry.key}: detected=${detected.toStringAsFixed(1)} expected=${entry.value} diff=${diff.toStringAsFixed(1)} match=${matchPct.toStringAsFixed(0)}%');
+    }
+
+    final overallMatch = jointCount > 0 ? totalMatch / jointCount : 0.0;
+    if (overallMatch > _bestMatchPercent) {
+      _bestMatchPercent = overallMatch;
+    }
+
+    // Update feedback based on closeness
+    if (allWithinTolerance) {
+      poseMatched = true;
+      score++;
+      _bestMatchPercent = overallMatch;
+      poseResults.add(_bestMatchPercent);
+      feedbackMessage = 'Perfect! 🎉';
+      _countdownTimer?.cancel();
+      // Auto-advance after celebration
+      Timer(const Duration(milliseconds: 1500), () {
+        nextPose();
+      });
+    } else if (overallMatch >= 60) {
+      feedbackMessage = 'Almost there! ${overallMatch.toInt()}% 🔥';
+    } else if (overallMatch >= 30) {
+      feedbackMessage = 'Keep going! ${overallMatch.toInt()}% 💪';
     } else {
-      _holdCounter = 0;
-      feedbackMessage = 'Try again!';
+      feedbackMessage = 'Try the pose! ${currentPose!.emoji}';
     }
     notifyListeners();
   }
@@ -51,27 +118,35 @@ class ImitationProvider extends ChangeNotifier {
     if (currentPoseIndex < poses.length - 1) {
       currentPoseIndex++;
       poseMatched = false;
-      _holdCounter = 0;
       feedbackMessage = 'Get ready!';
+      _startTimer();
     } else {
+      // Record last pose result if not already
+      if (poseResults.length < poses.length && !poseMatched) {
+        poseResults.add(_bestMatchPercent);
+      }
       completeSession();
     }
     notifyListeners();
   }
 
   void completeSession() {
+    _countdownTimer?.cancel();
     sessionComplete = true;
     notifyListeners();
   }
 
   void reset() {
+    _countdownTimer?.cancel();
     poses = [];
     currentPoseIndex = 0;
     poseMatched = false;
     sessionComplete = false;
     score = 0;
     feedbackMessage = 'Get ready!';
-    _holdCounter = 0;
+    secondsRemaining = poseTimeLimit;
+    _bestMatchPercent = 0;
+    poseResults.clear();
     notifyListeners();
   }
 }

@@ -138,7 +138,7 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
         _kLeftShoulder, _kRightShoulder,
       ];
       final allConfident = requiredIndices.every(
-        (i) => _kp(i)[2] > 0.15,
+        (i) => _kp(i)[2] > 0.1,
       );
       print('allConfident: $allConfident');
       if (!allConfident) {

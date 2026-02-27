@@ -16,8 +16,6 @@ class ImitationScreen extends StatefulWidget {
 }
 
 class _ImitationScreenState extends State<ImitationScreen> {
-  bool _advancingPose = false;
-
   @override
   void initState() {
     super.initState();
@@ -27,19 +25,8 @@ class _ImitationScreenState extends State<ImitationScreen> {
   }
 
   void _handleAnglesDetected(Map<String, double> angles) {
-    final provider = context.read<ImitationProvider>();
-    provider.evaluatePose(angles);
-
-    // When matched, wait 1.5s then advance (prevent multiple triggers)
-    if (provider.poseMatched && !_advancingPose) {
-      _advancingPose = true;
-      Timer(const Duration(milliseconds: 1500), () {
-        if (mounted) {
-          context.read<ImitationProvider>().nextPose();
-          _advancingPose = false;
-        }
-      });
-    }
+    if (!mounted) return;
+    context.read<ImitationProvider>().evaluatePose(angles);
   }
 
   void _handleError(String message) {
@@ -85,21 +72,53 @@ class _ImitationScreenState extends State<ImitationScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    final timerColor = provider.secondsRemaining <= 3
+        ? Colors.red
+        : const Color(0xFF6C63FF);
+
     return Column(
       children: [
-        // Progress indicator
+        // Progress + Timer bar
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
           color: const Color(0xFF6C63FF).withValues(alpha: 0.08),
-          child: Text(
-            'Pose ${provider.currentPoseIndex + 1} of ${provider.poses.length}',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF6C63FF),
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Pose ${provider.currentPoseIndex + 1} of ${provider.poses.length}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6C63FF),
+                ),
+              ),
+              // Countdown timer
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: timerColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: timerColor, width: 2),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.timer_rounded, size: 18, color: timerColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${provider.secondsRemaining}s',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: timerColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
 
@@ -117,7 +136,7 @@ class _ImitationScreenState extends State<ImitationScreen> {
           ),
         ),
 
-        // Divider with label
+        // Divider with feedback
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Row(
@@ -173,8 +192,23 @@ class _ImitationScreenState extends State<ImitationScreen> {
   // ─── Results ──────────────────────────────────────────────────────────
 
   Widget _buildResultsScreen(ImitationProvider provider) {
+    final totalPoses = provider.poses.length;
+    final overallPercent = provider.poseResults.isNotEmpty
+        ? (provider.poseResults.reduce((a, b) => a + b) /
+                provider.poseResults.length)
+            .toInt()
+        : 0;
+
+    // Stars based on overall percentage
+    final starCount = overallPercent >= 80
+        ? 3
+        : overallPercent >= 50
+            ? 2
+            : overallPercent >= 25
+                ? 1
+                : 0;
     final stars = List.generate(
-      provider.score,
+      starCount,
       (_) => const Text('⭐', style: TextStyle(fontSize: 36)),
     );
 
@@ -185,24 +219,33 @@ class _ImitationScreenState extends State<ImitationScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
-              '🎉 Well Done!',
+              '🎉 Great Job!',
               style: TextStyle(
                 fontSize: 36,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF2D3748),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
-            // Score
+            // Overall score
             Text(
-              '${provider.score} out of ${provider.poses.length} poses matched',
+              '${provider.score} of $totalPoses poses matched!',
               style: const TextStyle(
                 fontSize: 20,
                 color: Color(0xFF718096),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+            Text(
+              'Overall: $overallPercent%',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF6C63FF),
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // Star rating
             Row(
@@ -216,7 +259,63 @@ class _ImitationScreenState extends State<ImitationScreen> {
                     ]
                   : stars,
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 24),
+
+            // Per-pose breakdown
+            ...List.generate(
+              provider.poses.length,
+              (i) {
+                final pose = provider.poses[i];
+                final result = i < provider.poseResults.length
+                    ? provider.poseResults[i].toInt()
+                    : 0;
+                final matched = result >= 70;
+                return Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: matched
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: matched ? Colors.green : Colors.orange,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(pose.emoji, style: const TextStyle(fontSize: 24)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          pose.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '$result%',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: matched ? Colors.green : Colors.orange,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        matched ? Icons.check_circle : Icons.timer_outlined,
+                        color: matched ? Colors.green : Colors.orange,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 32),
 
             // Play Again
             SizedBox(
@@ -236,7 +335,7 @@ class _ImitationScreenState extends State<ImitationScreen> {
                   provider.loadPoses();
                 },
                 child: const Text(
-                  'Play Again',
+                  'Play Again 🔄',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
