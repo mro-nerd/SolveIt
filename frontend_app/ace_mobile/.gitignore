@@ -33,6 +33,19 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Linux/macOS/Windows specific ephemeral/generated files
+**/linux/flutter/ephemeral/
+**/linux/flutter/generated_plugin_registrant.cc
+**/linux/flutter/generated_plugins.cmake
+**/macos/Flutter/ephemeral/
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+**/windows/flutter/ephemeral/
+**/windows/flutter/generated_plugin_registrant.cc
+**/windows/flutter/generated_plugins.cmake
+**/ios/Runner/GeneratedPluginRegistrant.h
+**/ios/Runner/GeneratedPluginRegistrant.m
+**/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
 # Symbolication related
 app.*.symbols
 
@@ -44,12 +57,12 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-#more 
+# Environment variables
 .env
 .envs
-.dart_tool/
+
+# Dependencies
 .packages
-build/
 pubspec.lock
 
 # Firebase credentials
