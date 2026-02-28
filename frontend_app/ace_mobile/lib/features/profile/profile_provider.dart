@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ace_mobile/backend/backend.dart';
 
 class ProfileProvider extends ChangeNotifier {
+  final SupabaseService _supabase = SupabaseService();
   // ── Keys ──────────────────────────────────────────────────────────────────
   static const _kParentName = 'profile_parent_name';
   static const _kParentEmail = 'profile_parent_email';
@@ -39,6 +41,19 @@ class ProfileProvider extends ChangeNotifier {
     userRole = prefs.getString(_kUserRole) ?? '';
     _loaded = true;
     notifyListeners();
+    // Auto-sync on load to ensure Supabase has the latest data
+    await syncToSupabase();
+  }
+
+  // ── Supabase Sync ─────────────────────────────────────────────────────────
+  Future<void> syncToSupabase() async {
+    if (parentName.isNotEmpty && parentEmail.isNotEmpty) {
+      await _supabase.upsertProfile(parentName, parentEmail);
+    }
+    if (childName.isNotEmpty) {
+      final dob = DateTime.tryParse(childDob) ?? DateTime.now();
+      await _supabase.saveChild(childName, dob, childGender);
+    }
   }
 
   // ── Save helpers ──────────────────────────────────────────────────────────
@@ -51,18 +66,21 @@ class ProfileProvider extends ChangeNotifier {
     parentName = v;
     await _save(_kParentName, v);
     notifyListeners();
+    await syncToSupabase();
   }
 
   Future<void> updateParentEmail(String v) async {
     parentEmail = v;
     await _save(_kParentEmail, v);
     notifyListeners();
+    await syncToSupabase();
   }
 
   Future<void> updateChildName(String v) async {
     childName = v;
     await _save(_kChildName, v);
     notifyListeners();
+    await syncToSupabase();
   }
 
   Future<void> updateChildDob(String v) async {
