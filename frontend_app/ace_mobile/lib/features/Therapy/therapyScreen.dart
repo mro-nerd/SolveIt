@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:ace_mobile/core/constants.dart';
 import 'package:flutter/material.dart';
 
@@ -30,7 +32,7 @@ class TherapyScreen extends StatelessWidget {
               const SizedBox(height: 40),
               _buildGroundingHeader(context),
               const SizedBox(height: 20),
-              _buildBreathingPacer(context),
+              const _BreathingPacerCard(),
               const SizedBox(height: 20),
               _buildSensoryTechnique(context),
               const SizedBox(height: 20),
@@ -477,82 +479,6 @@ class TherapyScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBreathingPacer(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Breathing Pacer",
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Inhale slowly for 4 seconds, hold, and exhale for 6 seconds.",
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: appColors.primary.withValues(alpha: 0.8),
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.play_arrow, size: 18),
-            label: const Text("Start Pacer"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-            ),
-          ),
-          const SizedBox(height: 30),
-          Center(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: appColors.green.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    color: appColors.green.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: appColors.green,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.air, color: Colors.white, size: 28),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSensoryTechnique(BuildContext context) {
     final items = [
       {"num": "5", "text": "Things you can ", "bold": "see"},
@@ -624,26 +550,29 @@ class TherapyScreen extends StatelessWidget {
   }
 
   Widget _buildActionGrid(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildActionCard(
-            context,
-            "Call a Friend",
-            "Reach out to your inner circle",
-            Icons.people_outline,
+    return SizedBox(
+      height: 170,
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildActionCard(
+              context,
+              "Call a Friend",
+              "Reach out to your inner circle",
+              Icons.people_outline,
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildActionCard(
-            context,
-            "Schedule Therapist",
-            "Book a follow-up session",
-            Icons.calendar_month_outlined,
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildActionCard(
+              context,
+              "Schedule Therapist",
+              "Book a follow-up session",
+              Icons.calendar_month_outlined,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -654,6 +583,7 @@ class TherapyScreen extends StatelessWidget {
     IconData icon,
   ) {
     return Container(
+      height: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -725,6 +655,261 @@ class TherapyScreen extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
         ),
       ],
+    );
+  }
+}
+
+// ── Breathing Pacer (animated) ──────────────────────────────────────────────
+
+enum _BreathPhase { idle, inhale, hold, exhale }
+
+class _BreathingPacerCard extends StatefulWidget {
+  const _BreathingPacerCard();
+
+  @override
+  State<_BreathingPacerCard> createState() => _BreathingPacerCardState();
+}
+
+class _BreathingPacerCardState extends State<_BreathingPacerCard>
+    with SingleTickerProviderStateMixin {
+  // Cycle: 4s inhale + 2s hold + 6s exhale = 12s total
+  static const _inhaleDur = 4;
+  static const _holdDur = 2;
+  static const _exhaleDur = 6;
+  static const _totalDur = _inhaleDur + _holdDur + _exhaleDur; // 12
+
+  late final AnimationController _ctrl;
+  bool _running = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: _totalDur),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() => _running = !_running);
+    if (_running) {
+      _ctrl.repeat();
+    } else {
+      _ctrl.stop();
+      _ctrl.reset();
+    }
+  }
+
+  // Returns (phase, phaseProgress 0→1, countdown seconds)
+  ({_BreathPhase phase, double progress, int countdown}) _currentPhase(
+    double t,
+  ) {
+    final secs = t * _totalDur;
+    if (secs < _inhaleDur) {
+      final p = secs / _inhaleDur;
+      return (
+        phase: _BreathPhase.inhale,
+        progress: p,
+        countdown: _inhaleDur - secs.floor(),
+      );
+    } else if (secs < _inhaleDur + _holdDur) {
+      final p = (secs - _inhaleDur) / _holdDur;
+      return (
+        phase: _BreathPhase.hold,
+        progress: p,
+        countdown: _holdDur - (secs - _inhaleDur).floor(),
+      );
+    } else {
+      final p = (secs - _inhaleDur - _holdDur) / _exhaleDur;
+      return (
+        phase: _BreathPhase.exhale,
+        progress: p,
+        countdown: _exhaleDur - (secs - _inhaleDur - _holdDur).floor(),
+      );
+    }
+  }
+
+  // Circle scale: inhale 0.5→1.0, hold 1.0, exhale 1.0→0.5
+  double _circleScale(_BreathPhase phase, double progress) {
+    switch (phase) {
+      case _BreathPhase.inhale:
+        return 0.5 + 0.5 * Curves.easeInOut.transform(progress);
+      case _BreathPhase.hold:
+        return 1.0;
+      case _BreathPhase.exhale:
+        return 1.0 - 0.5 * Curves.easeInOut.transform(progress);
+      case _BreathPhase.idle:
+        return 0.5;
+    }
+  }
+
+  Color _phaseColor(_BreathPhase phase) {
+    switch (phase) {
+      case _BreathPhase.inhale:
+        return appColors.green;
+      case _BreathPhase.hold:
+        return const Color(0xFFD97706); // amber
+      case _BreathPhase.exhale:
+        return const Color(0xFF0891B2); // teal
+      case _BreathPhase.idle:
+        return appColors.green;
+    }
+  }
+
+  String _phaseLabel(_BreathPhase phase) {
+    switch (phase) {
+      case _BreathPhase.inhale:
+        return 'Inhale';
+      case _BreathPhase.hold:
+        return 'Hold';
+      case _BreathPhase.exhale:
+        return 'Exhale';
+      case _BreathPhase.idle:
+        return 'Ready';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Breathing Pacer",
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Inhale slowly for 4 seconds, hold, and exhale for 6 seconds.",
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: appColors.primary.withValues(alpha: 0.8),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Start / Stop button
+          ElevatedButton.icon(
+            onPressed: _toggle,
+            icon: Icon(_running ? Icons.stop : Icons.play_arrow, size: 18),
+            label: Text(_running ? "Stop" : "Start Pacer"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _running ? appColors.primary : Colors.white,
+              foregroundColor: _running ? Colors.white : Colors.black,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: _running ? appColors.primary : Colors.grey.shade200,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+
+          // Animated breathing circle
+          Center(
+            child: AnimatedBuilder(
+              animation: _ctrl,
+              builder: (_, __) {
+                final state = _running
+                    ? _currentPhase(_ctrl.value)
+                    : (phase: _BreathPhase.idle, progress: 0.0, countdown: 0);
+                final scale = _circleScale(state.phase, state.progress);
+                final color = _phaseColor(state.phase);
+
+                return Column(
+                  children: [
+                    SizedBox(
+                      width: 160,
+                      height: 160,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Outer ring
+                          _animatedCircle(160 * scale, color, 0.1),
+                          // Middle ring
+                          _animatedCircle(120 * scale, color, 0.2),
+                          // Core
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: 70 * scale,
+                            height: 70 * scale,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: color.withValues(alpha: 0.4),
+                                  blurRadius: 20,
+                                  spreadRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: _running
+                                  ? Text(
+                                      '${state.countdown}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.air,
+                                      color: Colors.white,
+                                      size: 28,
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Phase label
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 300),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: color,
+                        letterSpacing: 1.5,
+                      ),
+                      child: Text(_phaseLabel(state.phase)),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _animatedCircle(double size, Color color, double alpha) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: math.max(size, 0),
+      height: math.max(size, 0),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: alpha),
+        shape: BoxShape.circle,
+      ),
     );
   }
 }

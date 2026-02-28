@@ -1,3 +1,15 @@
+## --- Flutter ---
+-keep class io.flutter.** { *; }
+-dontwarn io.flutter.**
+
+## --- Firebase ---
+-keep class com.google.firebase.** { *; }
+-dontwarn com.google.firebase.**
+
+## --- Google ML Kit Face Detection ---
+-keep class com.google.mlkit.vision.face.** { *; }
+-dontwarn com.google.mlkit.vision.face.**
+
 ## --- Google ML Kit text recognition optional language packs ---
 ## These classes are referenced by google_mlkit_text_recognition but only
 ## needed when the corresponding language-specific packages are added.

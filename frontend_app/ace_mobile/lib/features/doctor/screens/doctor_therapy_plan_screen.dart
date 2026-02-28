@@ -68,7 +68,7 @@ class _DoctorTherapyPlanScreenState extends State<DoctorTherapyPlanScreen> {
 
                 // ── Patient Header ──
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
@@ -174,7 +174,7 @@ class _DoctorTherapyPlanScreenState extends State<DoctorTherapyPlanScreen> {
                           // Current Level
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(16),
@@ -239,7 +239,7 @@ class _DoctorTherapyPlanScreenState extends State<DoctorTherapyPlanScreen> {
                           // Engagement
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(16),
@@ -298,6 +298,7 @@ class _DoctorTherapyPlanScreenState extends State<DoctorTherapyPlanScreen> {
                                       ],
                                     ),
                                   ),
+                                  SizedBox(height: 16),
                                 ],
                               ),
                             ),
