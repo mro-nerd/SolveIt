@@ -76,7 +76,3 @@ This document provides a detailed walkthrough of the ACE Mobile user experience,
 - **Logic**: Allows editing of child information and medical preferences. Integrated with local and cloud storage.
 - **Visuals**: Clean form layouts and profile image selection.
 ![Profile Settings](docs/screenshots/profile_settings.png)
-
----
-
-<p align="center"><i>To add your own screenshots, simply place the images in the `docs/screenshots/` folder with the names listed above.</i></p>
