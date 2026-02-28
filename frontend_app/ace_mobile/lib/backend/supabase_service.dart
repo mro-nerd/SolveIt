@@ -1,8 +1,9 @@
+import 'package:ace_mobile/backend/supabase_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class SupabaseService {
-  SupabaseClient get _db => Supabase.instance.client;
+  SupabaseClient get _db => SupabaseClientManager.client;
   String? get _firebaseUid => FirebaseAuth.instance.currentUser?.uid;
 
   Future<void> upsertProfile(String parentName, String email) async {

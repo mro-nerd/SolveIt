@@ -1,3 +1,4 @@
+import 'package:ace_mobile/backend/backend.dart';
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/assessment/providers/assessment_provider.dart';
 import 'package:ace_mobile/features/assessment/providers/mchat_ai_provider.dart';
@@ -13,7 +14,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,10 +27,7 @@ void main() async {
   await Firebase.initializeApp();
   await dotenv.load(fileName: ".env");
 
-  await Supabase.initialize(
-    url: 'https://yejnqaozqerlaobxdfuq.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inllam5xYW96cWVybGFvYnhkZnVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMTQwMjYsImV4cCI6MjA4Nzc5MDAyNn0.yymz_kzNMDNPh-oRgv6qVdf-C4WHXFXDoETRp0LCCgs',
-  );
+  await SupabaseClientManager.initialize();
 
   runApp(const MyApp());
 }
