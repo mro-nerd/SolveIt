@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/images/appLogo.png" width="150" alt="ACE Mobile Logo" />
+  <img src="frontend_app/ace_mobile/assets/images/appLogo.png" width="150" alt="ACE Mobile Logo" />
   <h1>ACE (Autism Care Ecosystem) Mobile</h1>
   <p><strong>An advanced, AI-driven mobile application for Autism spectrum disorder management, screening, and therapy.</strong></p>
   <p><i>Developed by Akarsh Solanky</i></p>
