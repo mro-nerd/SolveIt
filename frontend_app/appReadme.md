@@ -1,7 +1,7 @@
 # ACE Mobile - Developer Documentation
 
 ## 🚀 Overview
-ACE (Autism Care & Engagement) is a comprehensive clinical companion app designed to empower families through early screening, therapy integration, and clinical data management. Built with Flutter, it features a premium design system, reactive state management, and robust data persistence.
+ACE (Autism Care & Engagement) is a clinical companion app designed to empower families through early screening, therapy integration, and clinical data management. Built with Flutter, it features a premium design system, reactive state management, and robust on-device ML processing.
 
 ---
 
@@ -10,8 +10,9 @@ ACE (Autism Care & Engagement) is a comprehensive clinical companion app designe
 - **State Management:** `Provider` (ChangeNotifier)
 - **Persistence:** `SharedPreferences`
 - **Backend/Auth:** Firebase (Core, Auth), Google Sign-In
-- **UI Components:** `PersistentBottomNavBar`, `GoogleFonts`, `ImagePicker`
-- **Design Pattern:** Feature-based folder structure
+- **UI Components:** `PersistentBottomNavBar`, `GoogleFonts`, `flutter_animate`
+- **On-Device ML:** `tflite_flutter` (MoveNet), `google_mlkit_face_detection`
+- **API Provider:** **OpenRouter** (Unified LLM access)
 
 ---
 

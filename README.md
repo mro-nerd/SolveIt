@@ -2,7 +2,16 @@
   <img src="frontend_app/ace_mobile/assets/images/appLogo.png" width="150" alt="ACE Mobile Logo" />
   <h1>ACE (Autism Care Ecosystem) Mobile</h1>
   <p><strong>An advanced, AI-driven mobile application for Autism spectrum disorder management, screening, and therapy.</strong></p>
-  <p><i>Developed by Akarsh Solanky</i></p>
+  <p><i>Developed by <a href="https://github.com/ItsAkarsh05">Akarsh Solanky</a>, <a href="https://github.com/mro-nerd">Aditya Mishra</a>, and <a href="https://github.com/KhushneetSingh">Khushneet Singh</a></i></p>
+
+  <p>
+    <img src="https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white" alt="Flutter" />
+    <img src="https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white" alt="Firebase" />
+    <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=Supabase&logoColor=white" alt="Supabase" />
+    <img src="https://img.shields.io/badge/TensorFlow-FF6F00?style=for-the-badge&logo=TensorFlow&logoColor=white" alt="TensorFlow" />
+    <img src="https://img.shields.io/badge/Google%20ML%20Kit-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google ML Kit" />
+    <img src="https://img.shields.io/badge/OpenRouter-7E57C2?style=for-the-badge&logo=openai&logoColor=white" alt="OpenRouter" />
+  </p>
 </div>
 
 <hr />
@@ -131,26 +140,23 @@ The app is heavily optimized for distribution and edge-ML performance:
 
 ---
 
-## 📥 Setup & Installation
+## 🤝 Contributing
 
-1.  **Clone the repository.**
-2.  **Dependencies:**
-    ```bash
-    flutter clean
-    flutter pub get
-    ```
-3.  **Environment Variables (`.env`)**:
-    Create a `.env` file at the root level and include necessary API keys (LLM endpoints, backend URLs). Make sure this is added to `.gitignore`.
-4.  **Firebase Config**:
-    Ensure your `google-services.json` is located in `android/app/` and `GoogleService-Info.plist` is in `ios/Runner/`.
-5.  **Build**:
-    ```bash
-    # For a debug build to a physical device:
-    flutter run
+We welcome contributions to ACE Mobile! To contribute:
 
-    # For a minimized, optimized release build:
-    flutter build apk --release --split-per-abi
-    ```
+1.  **Fork** the repository.
+2.  **Create a new branch** (`git checkout -b feature/your-feature`).
+3.  **Commit your changes** (`git commit -m 'Add some feature'`).
+4.  **Push to the branch** (`git push origin feature/your-feature`).
+5.  **Open a Pull Request**.
+
+Developed with ❤️ by **Akarsh Solanky**, **Aditya Mishra**, and **Khushneet Singh**.
+
+---
+
+## 📜 License
+
+This project is licensed under the **Apache License 2.0**. See the [LICENSE] file for the full text.
 
 ---
 <p align="center"><i>Empowering families, connecting professionals, and supporting neurodiversity through technology.</i></p>
