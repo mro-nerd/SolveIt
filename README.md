@@ -25,12 +25,9 @@ By blending gamified therapy exercises, on-device machine learning for behaviora
 ---
 
 ## 🎥 Video Explanation
-
-
-
-https://github.com/user-attachments/assets/a21460e8-707f-4bd9-8c63-30051019eb49
-
-
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/a21460e8-707f-4bd9-8c63-30051019eb49" width="300" controls></video>
+</div>
 
 ---
 
