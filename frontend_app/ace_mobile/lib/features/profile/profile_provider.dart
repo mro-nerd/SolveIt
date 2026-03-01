@@ -43,6 +43,21 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
     // Auto-sync on load to ensure Supabase has the latest data
     await syncToSupabase();
+
+    // If local name is empty but Supabase has it, load it down
+    if (childName.isEmpty) {
+      final childData = await _supabase.getChild();
+      if (childData != null && childData['child_name'] != null) {
+        childName = childData['child_name'];
+        if (childData['date_of_birth'] != null) {
+          childDob = childData['date_of_birth'];
+        }
+        if (childData['gender'] != null) {
+          childGender = childData['gender'];
+        }
+        notifyListeners();
+      }
+    }
   }
 
   // ── Supabase Sync ─────────────────────────────────────────────────────────

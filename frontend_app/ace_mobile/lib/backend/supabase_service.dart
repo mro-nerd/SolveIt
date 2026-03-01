@@ -57,6 +57,8 @@ class SupabaseService {
           .from('children')
           .select()
           .eq('parent_id', profileId)
+          .order('created_at', ascending: false)
+          .limit(1)
           .maybeSingle();
       return response;
     } catch (e) {
