@@ -8,6 +8,7 @@ import 'package:ace_mobile/features/eye_contact/eye_contact_screen.dart';
 import 'package:ace_mobile/features/imitation/imitation_provider.dart';
 import 'package:ace_mobile/features/imitation/imitation_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
+import 'package:ace_mobile/features/progress/progress_provider.dart';
 import 'package:ace_mobile/features/splash/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -41,6 +42,7 @@ class MyApp extends StatelessWidget {
       providers: [
         // ProfileProvider is created here; SplashScreen will call loadFromPrefs
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
+        ChangeNotifierProvider(create: (_) => ProgressProvider()),
         ChangeNotifierProvider(create: (_) => AssessmentProvider()),
         ChangeNotifierProvider(create: (_) => MchatAiProvider()),
         ChangeNotifierProvider(create: (_) => EyeContactProvider()),
