@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:ace_mobile/backend/backend.dart';
 import 'models/pose_reference.dart';
 
 /// State management for the Imitation (Copy the Pose) feature.
@@ -171,6 +172,24 @@ class ImitationProvider extends ChangeNotifier {
     _countdownTimer?.cancel();
     sessionComplete = true;
     notifyListeners();
+
+    final overallMatch = poseResults.isEmpty 
+        ? 0.0 
+        : poseResults.map((r) => r.finalScore).reduce((a, b) => a + b) / poseResults.length;
+
+    SupabaseService().saveSession(
+      'imitation',
+      overallMatch,
+      {
+        'poses_attempted': poseResults.length,
+        'poses_successful': score,
+        'pose_results': poseResults.map((r) => {
+          'pose_name': r.pose.name,
+          'final_score': r.finalScore,
+        }).toList(),
+      },
+      aiSummary: 'Successfully imitated $score out of ${poseResults.length} poses with an average accuracy of ${overallMatch.toStringAsFixed(1)}%.',
+    );
   }
 
   void reset() {
