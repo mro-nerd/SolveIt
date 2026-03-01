@@ -28,6 +28,10 @@ By blending gamified therapy exercises, on-device machine learning for behaviora
 
 
 
+https://github.com/user-attachments/assets/a21460e8-707f-4bd9-8c63-30051019eb49
+
+
+
 ---
 
 ## ✨ Core Features & Capabilities
