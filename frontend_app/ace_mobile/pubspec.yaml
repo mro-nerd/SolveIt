@@ -51,6 +51,7 @@ dependencies:
   tflite_flutter: ^0.11.0
   image: ^4.3.0
   flutter_animate: ^4.5.2
+  supabase_flutter: ^2.3.0
 
 dev_dependencies:
   flutter_test:

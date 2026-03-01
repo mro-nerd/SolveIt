@@ -8,11 +8,23 @@ ACE (Autism Care & Engagement) is a clinical companion app designed to empower f
 ## 🛠 Tech Stack
 - **Framework:** Flutter (Dart)
 - **State Management:** `Provider` (ChangeNotifier)
-- **Persistence:** `SharedPreferences`
-- **Backend/Auth:** Firebase (Core, Auth), Google Sign-In
+- **Persistence:** `SharedPreferences` (Local), **Supabase** (Cloud Database)
+- **Backend/Auth:** Firebase (Core, Auth), Google Sign-In, **Supabase** (PostgreSQL)
 - **UI Components:** `PersistentBottomNavBar`, `GoogleFonts`, `flutter_animate`
 - **On-Device ML:** `tflite_flutter` (MoveNet), `google_mlkit_face_detection`
 - **API Provider:** **OpenRouter** (Unified LLM access)
+
+---
+
+## 🔐 Environment Setup
+
+To run the app locally, you must create a `.env` file in the `frontend_app/ace_mobile/` directory:
+```env
+GENAI_KEY=your_openrouter_key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+This ensures no API keys are checked into version control.
 
 ---
 
@@ -57,7 +69,15 @@ We use a reactive **Auth State Machine** approach:
 - **Details:** The central "source of truth" for user data.
   - **Fields:** Parent Name/Email, Child Name/DOB/Gender/Diagnosis, Photo Path.
   - **Persistence:** Every setter (e.g., `updateChildName`) automatically commits the change to `SharedPreferences`.
+  - **Cloud Sync:** Uses `SupabaseService.upsertProfile` and `saveChild` to keep the cloud PostgreSQL database in perfect sync with the local state.
   - **Reactivity:** Calls `notifyListeners()` to update the UI across the app (Home Screen greeting, Profile Header, etc.) instantly.
+
+### 📈 Progress Dashboard
+- **Path:** `lib/features/progress/progress_dashboard_screen.dart`
+- **Details:** 
+  - Real-time fetching of historical game sessions (Eye Contact, Imitation, Emotion) from the Supabase `sessions` table.
+  - Displays aggregated scores and the LLM-generated summaries for each completed session.
+  - Managed by `ProgressProvider`.
 
 ### 👤 Profile & Settings
 - **Path:** `lib/features/profile/profile_screen.dart`

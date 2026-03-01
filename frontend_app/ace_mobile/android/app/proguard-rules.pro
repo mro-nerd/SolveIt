@@ -20,3 +20,13 @@
 -keep class org.tensorflow.lite.** { *; }
 -keep class org.tensorflow.lite.gpu.** { *; }
 -dontwarn org.tensorflow.lite.**
+
+## --- Environment Variables (flutter_dotenv) ---
+-keep class com.flutter_dotenv.** { *; }
+-dontwarn com.flutter_dotenv.**
+
+## --- Supabase / GoTrue / Postgrest ---
+-keep class io.supabase.** { *; }
+-dontwarn io.supabase.**
+-keep class com.supabase.** { *; }
+-dontwarn com.supabase.**

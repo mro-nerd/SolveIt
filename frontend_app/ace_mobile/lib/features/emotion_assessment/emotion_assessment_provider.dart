@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:ace_mobile/backend/backend.dart';
 
 import 'models/assessment_result.dart';
 import 'models/stimulus.dart';
@@ -146,6 +147,24 @@ class EmotionAssessmentProvider extends ChangeNotifier {
       _computeSummary();
       _state = AssessmentState.done;
       notifyListeners();
+
+      if (_summary != null) {
+        SupabaseService().saveSession(
+          'emotion',
+          _summary!.overallScore,
+          {
+            'avg_reaction_time_ms': _summary!.avgReactionTimeMs,
+            'emotional_variability': _summary!.emotionalVariability,
+            'empathy_score': _summary!.empathyScore,
+            'round_results': _summary!.roundResults.map((r) => {
+              'emotion': r.stimulus.expectedEmotion.toString(),
+              'score': r.emotionMatchScore,
+            }).toList(),
+          },
+          aiSummary: 'Overall emotional recognition score: ${_summary!.overallScore.toStringAsFixed(1)}%. '
+                     'Average reaction time: ${_summary!.avgReactionTimeMs.toStringAsFixed(0)}ms.',
+        );
+      }
     }
   }
 

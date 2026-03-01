@@ -82,12 +82,18 @@ class _ProfileScreenState extends State<ProfileScreen>
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final p = context.read<ProfileProvider>();
-    await p.updateParentName(_parentNameCtrl.text.trim());
-    await p.updateParentEmail(_parentEmailCtrl.text.trim());
-    await p.updateChildName(_childNameCtrl.text.trim());
-    await p.updateChildDob(_childDobCtrl.text.trim());
-    await p.updateChildGender(_selectedGender ?? '');
-    await p.updateChildDiagnosis(_childDiagnosisCtrl.text.trim());
+    
+    // Update local preferences and state first (without triggering individual syncs)
+    await p.updateParentName(_parentNameCtrl.text.trim(), sync: false);
+    await p.updateParentEmail(_parentEmailCtrl.text.trim(), sync: false);
+    await p.updateChildName(_childNameCtrl.text.trim(), sync: false);
+    await p.updateChildDob(_childDobCtrl.text.trim(), sync: false);
+    await p.updateChildGender(_selectedGender ?? '', sync: false);
+    await p.updateChildDiagnosis(_childDiagnosisCtrl.text.trim(), sync: false);
+    
+    // Trigger a single sync to Supabase once all state is updated
+    await p.syncToSupabase();
+    
     setState(() => _editing = false);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

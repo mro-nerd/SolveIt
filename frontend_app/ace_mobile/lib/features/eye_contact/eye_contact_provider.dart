@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:ace_mobile/backend/backend.dart';
 
 class EyeContactProvider extends ChangeNotifier {
   // ── Configuration ───────────────────────────────────────────────────────
@@ -90,6 +91,18 @@ class EyeContactProvider extends ChangeNotifier {
   void endSession() {
     _sessionActive = false;
     notifyListeners();
+
+    // Fire and forget save to Supabase
+    SupabaseService().saveSession(
+      'eye_contact',
+      _score * 100, // Store as percentage
+      {
+        'duration_seconds': _sessionDurationSeconds,
+        'total_frames': _totalFrameCount,
+        'aligned_frames': _alignedFrameCount,
+      },
+      aiSummary: 'Maintained eye contact for ${(_score * 100).toStringAsFixed(1)}% of the session.',
+    );
   }
 
   /// Resets everything back to initial values without starting a session.

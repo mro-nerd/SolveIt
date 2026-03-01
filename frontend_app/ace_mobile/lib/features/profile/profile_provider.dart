@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ace_mobile/backend/backend.dart';
 
 class ProfileProvider extends ChangeNotifier {
+  final SupabaseService _supabase = SupabaseService();
   // ── Keys ──────────────────────────────────────────────────────────────────
   static const _kParentName = 'profile_parent_name';
   static const _kParentEmail = 'profile_parent_email';
@@ -39,6 +41,36 @@ class ProfileProvider extends ChangeNotifier {
     userRole = prefs.getString(_kUserRole) ?? '';
     _loaded = true;
     notifyListeners();
+    // Auto-sync on load to ensure Supabase has the latest data
+    await syncToSupabase();
+
+    // If local name is empty but Supabase has it, load it down
+    if (childName.isEmpty) {
+      final childData = await _supabase.getChild();
+      if (childData != null && childData['child_name'] != null) {
+        childName = childData['child_name'];
+        if (childData['date_of_birth'] != null) {
+          childDob = childData['date_of_birth'];
+        }
+        if (childData['gender'] != null) {
+          childGender = childData['gender'];
+        }
+        notifyListeners();
+      }
+    }
+  }
+
+  // ── Supabase Sync ─────────────────────────────────────────────────────────
+  Future<void> syncToSupabase() async {
+    if (parentName.isNotEmpty && parentEmail.isNotEmpty) {
+      await _supabase.upsertProfile(parentName, parentEmail);
+    }
+    
+    // As long as there is a child name, sync the child profile.
+    if (childName.isNotEmpty) {
+      final dob = DateTime.tryParse(childDob) ?? DateTime.now();
+      await _supabase.saveChild(childName, dob, childGender);
+    }
   }
 
   // ── Save helpers ──────────────────────────────────────────────────────────
@@ -47,40 +79,46 @@ class ProfileProvider extends ChangeNotifier {
     await prefs.setString(key, value);
   }
 
-  Future<void> updateParentName(String v) async {
+  Future<void> updateParentName(String v, {bool sync = true}) async {
     parentName = v;
     await _save(_kParentName, v);
     notifyListeners();
+    if (sync) await syncToSupabase();
   }
 
-  Future<void> updateParentEmail(String v) async {
+  Future<void> updateParentEmail(String v, {bool sync = true}) async {
     parentEmail = v;
     await _save(_kParentEmail, v);
     notifyListeners();
+    if (sync) await syncToSupabase();
   }
 
-  Future<void> updateChildName(String v) async {
+  Future<void> updateChildName(String v, {bool sync = true}) async {
     childName = v;
     await _save(_kChildName, v);
     notifyListeners();
+    if (sync) await syncToSupabase();
   }
 
-  Future<void> updateChildDob(String v) async {
+  Future<void> updateChildDob(String v, {bool sync = true}) async {
     childDob = v;
     await _save(_kChildDob, v);
     notifyListeners();
+    if (sync) await syncToSupabase();
   }
 
-  Future<void> updateChildGender(String v) async {
+  Future<void> updateChildGender(String v, {bool sync = true}) async {
     childGender = v;
     await _save(_kChildGender, v);
     notifyListeners();
+    if (sync) await syncToSupabase();
   }
 
-  Future<void> updateChildDiagnosis(String v) async {
+  Future<void> updateChildDiagnosis(String v, {bool sync = true}) async {
     childDiagnosis = v;
     await _save(_kChildDiagnosis, v);
     notifyListeners();
+    if (sync) await syncToSupabase(); // Diagnosis is not currently sent to Supabase in saveChild, but keeping pattern consistent
   }
 
   Future<void> updatePhotoPath(String path) async {
