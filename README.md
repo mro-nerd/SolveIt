@@ -2,7 +2,7 @@
   <img src="frontend_app/ace_mobile/assets/images/appLogo.png" width="150" alt="ACE Mobile Logo" />
   <h1>ACE (Autism Care Ecosystem) Mobile</h1>
   <p><strong>An advanced, AI-driven mobile application for Autism spectrum disorder management, screening, and therapy.</strong></p>
-  <p><i>Developed by <a href="https://github.com/ItsAkarsh05">Akarsh Solanky</a>, <a href="https://github.com/mro-nerd">Aditya Mishra</a>, and <a href="https://github.com/KhushneetSingh">Khushneet Singh</a></i></p>
+  <p><i>Developed by <a href="https://github.com/mro-nerd">Aditya Mishra</a>, <a href="https://github.com/KhushneetSingh">Khushneet Singh</a>, and <a href="https://github.com/ItsAkarsh05">Akarsh Solanky</a></i></p>
 
   <p>
     <img src="https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white" alt="Flutter" />
@@ -21,6 +21,12 @@
 ACE Mobile is a comprehensive, intelligently designed Flutter application built to support the entire autism care triad: **Children**, **Parents/Caregivers**, and **Medical Professionals**. 
 
 By blending gamified therapy exercises, on-device machine learning for behavioral assessment, and large language models (LLMs) for personalized guidance, ACE bridges the gap between clinical visits and at-home developmental support.
+
+---
+
+## 🎥 Video Explanation
+
+
 
 ---
 
@@ -176,7 +182,7 @@ We welcome contributions to ACE Mobile! To contribute:
 4.  **Push to the branch** (`git push origin feature/your-feature`).
 5.  **Open a Pull Request**.
 
-Developed with ❤️ by **Akarsh Solanky**, **Aditya Mishra**, and **Khushneet Singh**.
+Developed with ❤️ by **Aditya Mishra**, **Khushneet Singh**, and **Akarsh Solanky**.
 
 ---
 
