@@ -49,6 +49,10 @@ The ACE ecosystem is divided into distinct, role-based experiences powered by ad
 *   **Patient Roster**: Doctors have a dedicated dashboard (`doctor_dashboard_screen.dart`) summarizing their assigned patients, flagged by risk levels or recent assessment completions.
 *   **Prescriptive Therapy Plans**: In `/doctor_therapy_plan`, doctors can view detailed clinical reports and adjust the child's "Therapy Level" (e.g., beginner, intermediate), tweak engagement metrics, and set daily action checklists that immediately reflect on the parent's home screen.
 
+### 📈 5. Progress Tracking
+*   **Progress Dashboard**: Parents can view a historical log of all completed assessments and games.
+*   **Secure Cloud Sync**: Game scores, behavioral metrics, and LLM-generated summaries are synchronized in real-time to Supabase (`sessions` table) with strict matching via unique parent-child constraints.
+
 ---
 
 ## 🗺️ User Flows & Navigation
@@ -87,6 +91,11 @@ ace_mobile/
 └── lib/
     ├── core/               # App-wide constants
     │   └── constants.dart  # Colors (appColors), typography, theme definitions
+    │
+    ├── backend/            # Centralized cloud services
+    │   ├── supabase_client.dart  # .env based initialization
+    │   ├── supabase_service.dart # Business logic for Profiles, Children, and Sessions
+    │   └── backend.dart          # Barrel exports
     │
     ├── shared/             # Reusable UI components (buttons, custom app bars)
     │
@@ -137,6 +146,23 @@ The app is heavily optimized for distribution and edge-ML performance:
 *   **Targeted Dependencies**: The bulky `google_ml_kit` umbrella package has been stripped in favor of the specialized `google_mlkit_face_detection` to keep native library (.so) payload minimal.
 *   **ABI Splits**: Separate binaries are built for `arm64-v8a` and `armeabi-v7a` drastically reducing the final APK/AppBundle size.
 *   **Custom ProGuard**: Keep rules injected for ML Kit, TFLite GPU delegates, and Firebase to ensure runtime stability post-minification.
+
+---
+
+## 💻 Local Development Setup
+
+To run ACE Mobile locally, you must provide your own API keys for Supabase and OpenRouter via a `.env` file. These keys are deliberately excluded from source control.
+
+1. Create a file named `.env` inside `frontend_app/ace_mobile/`.
+2. Add the following keys (replace with your actual credentials):
+
+```env
+GENAI_KEY=sk-or-v1-...
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOi...
+```
+
+The application will throw an initialization error if these keys are missing.
 
 ---
 
