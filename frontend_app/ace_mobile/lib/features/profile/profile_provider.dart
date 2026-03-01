@@ -65,6 +65,8 @@ class ProfileProvider extends ChangeNotifier {
     if (parentName.isNotEmpty && parentEmail.isNotEmpty) {
       await _supabase.upsertProfile(parentName, parentEmail);
     }
+    
+    // As long as there is a child name, sync the child profile.
     if (childName.isNotEmpty) {
       final dob = DateTime.tryParse(childDob) ?? DateTime.now();
       await _supabase.saveChild(childName, dob, childGender);
@@ -77,43 +79,46 @@ class ProfileProvider extends ChangeNotifier {
     await prefs.setString(key, value);
   }
 
-  Future<void> updateParentName(String v) async {
+  Future<void> updateParentName(String v, {bool sync = true}) async {
     parentName = v;
     await _save(_kParentName, v);
     notifyListeners();
-    await syncToSupabase();
+    if (sync) await syncToSupabase();
   }
 
-  Future<void> updateParentEmail(String v) async {
+  Future<void> updateParentEmail(String v, {bool sync = true}) async {
     parentEmail = v;
     await _save(_kParentEmail, v);
     notifyListeners();
-    await syncToSupabase();
+    if (sync) await syncToSupabase();
   }
 
-  Future<void> updateChildName(String v) async {
+  Future<void> updateChildName(String v, {bool sync = true}) async {
     childName = v;
     await _save(_kChildName, v);
     notifyListeners();
-    await syncToSupabase();
+    if (sync) await syncToSupabase();
   }
 
-  Future<void> updateChildDob(String v) async {
+  Future<void> updateChildDob(String v, {bool sync = true}) async {
     childDob = v;
     await _save(_kChildDob, v);
     notifyListeners();
+    if (sync) await syncToSupabase();
   }
 
-  Future<void> updateChildGender(String v) async {
+  Future<void> updateChildGender(String v, {bool sync = true}) async {
     childGender = v;
     await _save(_kChildGender, v);
     notifyListeners();
+    if (sync) await syncToSupabase();
   }
 
-  Future<void> updateChildDiagnosis(String v) async {
+  Future<void> updateChildDiagnosis(String v, {bool sync = true}) async {
     childDiagnosis = v;
     await _save(_kChildDiagnosis, v);
     notifyListeners();
+    if (sync) await syncToSupabase(); // Diagnosis is not currently sent to Supabase in saveChild, but keeping pattern consistent
   }
 
   Future<void> updatePhotoPath(String path) async {

@@ -42,7 +42,7 @@ class SupabaseService {
         'child_name': childName,
         'date_of_birth': dob.toIso8601String(),
         'gender': gender,
-      });
+      }, onConflict: 'parent_id');
     } catch (e) {
       print('Error in saveChild: $e');
     }
