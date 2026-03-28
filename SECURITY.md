@@ -15,15 +15,17 @@ We take the security of ACE seriously, especially given the sensitive nature of 
 
 If you discover a security vulnerability, please do NOT report it by creating a public GitHub issue.
 
-Instead, please send an email to **[your-email@example.com]** (please replace with your actual contact email). 
+Instead, please send an email to **[singhkhusneet601@gmail.com]**
 
 ### What to include in your report:
-* A description of the vulnerability.
-* Steps to reproduce the issue.
-* Any potential impact you have identified.
+
+- A description of the vulnerability.
+- Steps to reproduce the issue.
+- Any potential impact you have identified.
 
 ### Response Timeline
-* We will acknowledge receipt of your vulnerability report within 48 hours.
-* We will send you regular updates about our progress in investigating and mitigating the issue.
+
+- We will acknowledge receipt of your vulnerability report within 48 hours.
+- We will send you regular updates about our progress in investigating and mitigating the issue.
 
 Thank you for helping keep ACE secure!
