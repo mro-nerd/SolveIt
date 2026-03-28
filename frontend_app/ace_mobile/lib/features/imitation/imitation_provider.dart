@@ -5,6 +5,9 @@ import 'models/pose_reference.dart';
 
 /// State management for the Imitation (Copy the Pose) feature.
 class ImitationProvider extends ChangeNotifier {
+  // ── Services ────────────────────────────────────────────────────────────
+  final SessionService _sessionService = SessionService();
+
   List<PoseReference> poses = [];
   int currentPoseIndex = 0;
   bool sessionComplete = false;
@@ -28,6 +31,13 @@ class ImitationProvider extends ChangeNotifier {
 
   // Per-pose results
   final List<PoseResult> poseResults = [];
+
+  // ── Session saving state ────────────────────────────────────────────────
+  bool _isSaving = false;
+  String? _saveError;
+
+  bool get isSaving => _isSaving;
+  String? get saveError => _saveError;
 
   PoseReference? get currentPose =>
       poses.isNotEmpty && currentPoseIndex < poses.length
@@ -140,13 +150,12 @@ class ImitationProvider extends ChangeNotifier {
         continue;
       }
       final diff = (detected - entry.value).abs();
-      // Match % = 100 when diff=0, 0 when diff>=80
       final matchPct = ((1.0 - (diff / 80.0)) * 100).clamp(0, 100).toDouble();
       totalMatch += matchPct;
       jointCount++;
       if (diff > 35) allWithinTolerance = false;
 
-      print(
+      debugPrint(
           '  ${entry.key}: detected=${detected.toStringAsFixed(1)} expected=${entry.value} diff=${diff.toStringAsFixed(1)} match=${matchPct.toStringAsFixed(0)}%');
     }
 
@@ -172,24 +181,61 @@ class ImitationProvider extends ChangeNotifier {
     _countdownTimer?.cancel();
     sessionComplete = true;
     notifyListeners();
+    // Session save is now deferred — call saveSessionForChild() from the UI
+  }
 
-    final overallMatch = poseResults.isEmpty 
-        ? 0.0 
-        : poseResults.map((r) => r.finalScore).reduce((a, b) => a + b) / poseResults.length;
+  // ── Supabase Session Save ──────────────────────────────────────────────────
 
-    SupabaseService().saveSession(
-      'imitation',
-      overallMatch,
-      {
-        'poses_attempted': poseResults.length,
-        'poses_successful': score,
+  /// Saves the completed imitation session to Supabase.
+  /// [childId] — from ProfileProvider.currentChild['id'].
+  Future<void> saveSessionForChild(String childId) async {
+    _isSaving = true;
+    _saveError = null;
+    notifyListeners();
+
+    try {
+      final avgCosineSimilarity = poseResults.isEmpty
+          ? 0.0
+          : poseResults.map((r) => r.finalScore).reduce((a, b) => a + b) /
+              poseResults.length;
+
+      // Score: avgCosineSimilarity is already 0-100
+      final scorePercent = avgCosineSimilarity;
+
+      final rawMetrics = {
         'pose_results': poseResults.map((r) => {
           'pose_name': r.pose.name,
+          'best_match_percent': r.bestMatchPercent,
           'final_score': r.finalScore,
+          'matched_frames': r.matchedFrames,
+          'total_frames': r.totalFrames,
         }).toList(),
-      },
-      aiSummary: 'Successfully imitated $score out of ${poseResults.length} poses with an average accuracy of ${overallMatch.toStringAsFixed(1)}%.',
-    );
+        'avg_cosine_similarity': avgCosineSimilarity / 100, // Normalize to 0-1
+        'poses_attempted': poseResults.length,
+        'poses_successful': score,
+      };
+
+      final sessionId = await _sessionService.saveSession(
+        childId: childId,
+        sessionType: 'imitation',
+        score: scorePercent.clamp(0, 100).toDouble(),
+        rawMetrics: rawMetrics,
+      );
+
+      debugPrint('[Imitation] Session saved: $sessionId');
+      _triggerAiSummary(sessionId);
+    } catch (e) {
+      _saveError = 'Failed to save session: $e';
+      debugPrint('[Imitation] Save error: $e');
+    } finally {
+      _isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  /// Placeholder for Day 4 AI summary generation.
+  void _triggerAiSummary(String sessionId) {
+    debugPrint('[Imitation] AI summary trigger for $sessionId — not yet implemented');
   }
 
   void reset() {
@@ -206,6 +252,8 @@ class ImitationProvider extends ChangeNotifier {
     matchedFrames = 0;
     totalFrames = 0;
     poseResults.clear();
+    _isSaving = false;
+    _saveError = null;
     notifyListeners();
   }
 }

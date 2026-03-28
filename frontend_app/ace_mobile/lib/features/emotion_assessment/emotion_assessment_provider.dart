@@ -13,6 +13,9 @@ class EmotionAssessmentProvider extends ChangeNotifier {
   // ── Configuration ──
   static const int _countdownSeconds = 3;
 
+  // ── Services ──
+  final SessionService _sessionService = SessionService();
+
   // ── State ──
   AssessmentState _state = AssessmentState.idle;
   int _currentRoundIndex = 0;
@@ -34,6 +37,10 @@ class EmotionAssessmentProvider extends ChangeNotifier {
   /// Overall assessment summary (computed when all rounds are done).
   AssessmentSummary? _summary;
 
+  // ── Session saving state ──
+  bool _isSaving = false;
+  String? _saveError;
+
   // ── Getters ──
   AssessmentState get state => _state;
   int get currentRoundIndex => _currentRoundIndex;
@@ -42,6 +49,8 @@ class EmotionAssessmentProvider extends ChangeNotifier {
   int get totalRounds => kStimuliRounds.length;
   List<RoundResult> get roundResults => List.unmodifiable(_roundResults);
   AssessmentSummary? get summary => _summary;
+  bool get isSaving => _isSaving;
+  String? get saveError => _saveError;
 
   Stimulus get currentStimulus => kStimuliRounds[_currentRoundIndex];
 
@@ -52,6 +61,7 @@ class EmotionAssessmentProvider extends ChangeNotifier {
     _currentRoundIndex = 0;
     _roundResults.clear();
     _summary = null;
+    _saveError = null;
     _beginCountdown();
   }
 
@@ -147,24 +157,6 @@ class EmotionAssessmentProvider extends ChangeNotifier {
       _computeSummary();
       _state = AssessmentState.done;
       notifyListeners();
-
-      if (_summary != null) {
-        SupabaseService().saveSession(
-          'emotion',
-          _summary!.overallScore,
-          {
-            'avg_reaction_time_ms': _summary!.avgReactionTimeMs,
-            'emotional_variability': _summary!.emotionalVariability,
-            'empathy_score': _summary!.empathyScore,
-            'round_results': _summary!.roundResults.map((r) => {
-              'emotion': r.stimulus.expectedEmotion.toString(),
-              'score': r.emotionMatchScore,
-            }).toList(),
-          },
-          aiSummary: 'Overall emotional recognition score: ${_summary!.overallScore.toStringAsFixed(1)}%. '
-                     'Average reaction time: ${_summary!.avgReactionTimeMs.toStringAsFixed(0)}ms.',
-        );
-      }
     }
   }
 
@@ -217,6 +209,55 @@ class EmotionAssessmentProvider extends ChangeNotifier {
     );
   }
 
+  // ── Supabase Session Save ──────────────────────────────────────────────────
+
+  /// Saves the completed emotion assessment to Supabase.
+  /// [childId] — from ProfileProvider.currentChild['id'].
+  Future<void> saveSessionForChild(String childId) async {
+    if (_summary == null) return;
+
+    _isSaving = true;
+    _saveError = null;
+    notifyListeners();
+
+    try {
+      // Score formula: overallScore is already 0-100
+      final score = _summary!.overallScore;
+
+      final rawMetrics = {
+        'avg_reaction_time_ms': _summary!.avgReactionTimeMs,
+        'emotional_variability': _summary!.emotionalVariability,
+        'empathy_score': _summary!.empathyScore,
+        'round_results': _roundResults.map((r) => {
+          'emotion': r.stimulus.expectedEmotion.toString(),
+          'score': r.emotionMatchScore,
+          'reaction_time_ms': r.reactionTimeMs,
+        }).toList(),
+      };
+
+      final sessionId = await _sessionService.saveSession(
+        childId: childId,
+        sessionType: 'emotion_assessment',
+        score: score,
+        rawMetrics: rawMetrics,
+      );
+
+      debugPrint('[EmotionAssessment] Session saved: $sessionId');
+      _triggerAiSummary(sessionId);
+    } catch (e) {
+      _saveError = 'Failed to save session: $e';
+      debugPrint('[EmotionAssessment] Save error: $e');
+    } finally {
+      _isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  /// Placeholder for Day 4 AI summary generation.
+  void _triggerAiSummary(String sessionId) {
+    debugPrint('[EmotionAssessment] AI summary trigger for $sessionId — not yet implemented');
+  }
+
   /// Reset to idle state.
   void reset() {
     _state = AssessmentState.idle;
@@ -228,6 +269,8 @@ class EmotionAssessmentProvider extends ChangeNotifier {
     _firstMatchAtMs = null;
     _roundResults.clear();
     _summary = null;
+    _isSaving = false;
+    _saveError = null;
     notifyListeners();
   }
 }

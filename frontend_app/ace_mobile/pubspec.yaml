@@ -52,6 +52,8 @@ dependencies:
   image: ^4.3.0
   flutter_animate: ^4.5.2
   supabase_flutter: ^2.3.0
+  fl_chart: ^0.70.2
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:

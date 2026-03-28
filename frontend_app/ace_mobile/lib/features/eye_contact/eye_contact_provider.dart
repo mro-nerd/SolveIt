@@ -5,11 +5,13 @@ import 'package:ace_mobile/backend/backend.dart';
 class EyeContactProvider extends ChangeNotifier {
   // ── Configuration ───────────────────────────────────────────────────────
   /// Maximum yaw angle (degrees) that maps to the butterfly at the screen edge.
-  /// ML Kit typically returns ±30° for head turns on a phone-sized screen.
   static const double _maxYaw = 25.0;
 
   /// Grace period in seconds after session start where frames are not scored.
   static const int _graceSeconds = 2;
+
+  // ── Services ────────────────────────────────────────────────────────────
+  final SessionService _sessionService = SessionService();
 
   // ── State ────────────────────────────────────────────────────────────────
   bool _sessionActive = false;
@@ -24,11 +26,17 @@ class EyeContactProvider extends ChangeNotifier {
   /// Timestamp when the session started (for grace period).
   DateTime? _sessionStart;
 
+  // ── Session saving state ────────────────────────────────────────────────
+  bool _isSaving = false;
+  String? _saveError;
+
   // ── Getters ──────────────────────────────────────────────────────────────
   bool get sessionActive => _sessionActive;
   double get score => _score;
   int get sessionDurationSeconds => _sessionDurationSeconds;
   int get totalFrameCount => _totalFrameCount;
+  bool get isSaving => _isSaving;
+  String? get saveError => _saveError;
 
   /// Number of frames that scored ≥ 0.5 (i.e. "mostly aligned").
   int get alignedFrameCount => _alignedFrameCount;
@@ -43,24 +51,17 @@ class EyeContactProvider extends ChangeNotifier {
   // ── Methods ──────────────────────────────────────────────────────────────
 
   /// Updates the butterfly's normalized X position.
-  /// Called by [ButterflyAnimation.onPositionUpdate] on every animation frame.
   void updateButterflyPosition(double normalizedX) {
     _butterflyX = normalizedX;
-    // No notifyListeners — this fires at 60 Hz; scoring happens in recordGazeYaw.
   }
 
   /// Called by [EyeTrackingOverlay.onGazeYaw] with the smoothed yaw angle.
   /// Scores the frame and updates the running average.
   void recordGazeYaw(double yawAngle) {
     if (!_sessionActive) return;
-    if (inGracePeriod) return; // Don't score during grace period.
+    if (inGracePeriod) return;
 
-    // ── Map butterfly X to an expected yaw angle ──
-    // butterflyX ∈ [-1, +1]  →  expectedYaw ∈ [-_maxYaw, +_maxYaw]
     final expectedYaw = _butterflyX * _maxYaw;
-
-    // ── Per-frame score: how close is the gaze to the expected yaw? ──
-    // Score = 1.0 when perfectly aligned, drops linearly to 0.0 at ±_maxYaw deviation.
     final deviation = (yawAngle - expectedYaw).abs();
     final frameScore = max(0.0, 1.0 - (deviation / _maxYaw));
 
@@ -68,7 +69,6 @@ class EyeContactProvider extends ChangeNotifier {
     _scoreSum += frameScore;
     if (frameScore >= 0.5) _alignedFrameCount++;
 
-    // Running average score.
     _score = (_scoreSum / _totalFrameCount).clamp(0.0, 1.0);
 
     notifyListeners();
@@ -84,6 +84,7 @@ class EyeContactProvider extends ChangeNotifier {
     _score = 0.0;
     _butterflyX = 0.0;
     _sessionStart = DateTime.now();
+    _saveError = null;
     notifyListeners();
   }
 
@@ -91,18 +92,55 @@ class EyeContactProvider extends ChangeNotifier {
   void endSession() {
     _sessionActive = false;
     notifyListeners();
+    // Session save is now deferred — call saveSessionForChild() from the UI
+  }
 
-    // Fire and forget save to Supabase
-    SupabaseService().saveSession(
-      'eye_contact',
-      _score * 100, // Store as percentage
-      {
+  // ── Supabase Session Save ──────────────────────────────────────────────────
+
+  /// Saves the completed eye contact session to Supabase.
+  /// [childId] — from ProfileProvider.currentChild['id'].
+  Future<void> saveSessionForChild(String childId) async {
+    _isSaving = true;
+    _saveError = null;
+    notifyListeners();
+
+    try {
+      final sustainedMs = (_alignedFrameCount / max(1, _totalFrameCount) * _sessionDurationSeconds * 1000).round();
+      final totalMs = _sessionDurationSeconds * 1000;
+
+      // Score: sustained / total as percentage
+      final scorePercent = (sustainedMs / totalMs) * 100;
+
+      final rawMetrics = {
+        'avg_gaze_score': _score,
+        'sustained_ms': sustainedMs,
+        'total_ms': totalMs,
         'duration_seconds': _sessionDurationSeconds,
         'total_frames': _totalFrameCount,
         'aligned_frames': _alignedFrameCount,
-      },
-      aiSummary: 'Maintained eye contact for ${(_score * 100).toStringAsFixed(1)}% of the session.',
-    );
+      };
+
+      final sessionId = await _sessionService.saveSession(
+        childId: childId,
+        sessionType: 'eye_contact',
+        score: scorePercent.clamp(0, 100).toDouble(),
+        rawMetrics: rawMetrics,
+      );
+
+      debugPrint('[EyeContact] Session saved: $sessionId');
+      _triggerAiSummary(sessionId);
+    } catch (e) {
+      _saveError = 'Failed to save session: $e';
+      debugPrint('[EyeContact] Save error: $e');
+    } finally {
+      _isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  /// Placeholder for Day 4 AI summary generation.
+  void _triggerAiSummary(String sessionId) {
+    debugPrint('[EyeContact] AI summary trigger for $sessionId — not yet implemented');
   }
 
   /// Resets everything back to initial values without starting a session.
@@ -115,6 +153,8 @@ class EyeContactProvider extends ChangeNotifier {
     _scoreSum = 0.0;
     _butterflyX = 0.0;
     _sessionStart = null;
+    _isSaving = false;
+    _saveError = null;
     notifyListeners();
   }
 }
