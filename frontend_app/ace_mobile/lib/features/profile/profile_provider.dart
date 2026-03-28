@@ -4,7 +4,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ace_mobile/backend/backend.dart';
 
 class ProfileProvider extends ChangeNotifier {
-  final SupabaseService _supabase = SupabaseService();
+  // ── New domain services (injected or defaulted) ──────────────────────────
+  final ProfileService _profileService;
+  final ChildService _childService;
+
+  ProfileProvider({
+    ProfileService? profileService,
+    ChildService? childService,
+  })  : _profileService = profileService ?? ProfileService(),
+        _childService = childService ?? ChildService();
+
   // ── Keys ──────────────────────────────────────────────────────────────────
   static const _kParentName = 'profile_parent_name';
   static const _kParentEmail = 'profile_parent_email';
@@ -15,20 +24,39 @@ class ProfileProvider extends ChangeNotifier {
   static const _kPhotoPath = 'profile_photo_path';
   static const _kUserRole = 'user_role';
 
-  // ── State ─────────────────────────────────────────────────────────────────
+  // ── State (local / SharedPreferences) ────────────────────────────────────
   String parentName = '';
   String parentEmail = '';
   String childName = '';
   String childDob = '';
   String childGender = '';
   String childDiagnosis = '';
-  String? photoPath; // local file path after image-pick
+  String? photoPath;
   String userRole = ''; // 'parent' | 'doctor' | ''
+
+  // ── Supabase-backed state ────────────────────────────────────────────────
+  Map<String, dynamic>? _profile;       // full profile row from Supabase
+  Map<String, dynamic>? _currentChild;  // current child row from Supabase
+
+  Map<String, dynamic>? get currentProfile => _profile;
+  Map<String, dynamic>? get currentChild => _currentChild;
 
   bool _loaded = false;
   bool get isLoaded => _loaded;
 
-  // ── Load from prefs ───────────────────────────────────────────────────────
+  /// Role resolved from Supabase profile, falling back to local prefs.
+  String get currentRole {
+    if (_profile != null && _profile!['role'] != null) {
+      return _profile!['role'] as String;
+    }
+    return userRole.isNotEmpty ? userRole : 'parent';
+  }
+
+  bool get isDoctor => currentRole == 'doctor';
+  bool get isParent => currentRole == 'parent';
+  bool get hasSelectedRole => userRole.isNotEmpty || _profile?['role'] != null;
+
+  // ── Load from SharedPreferences ──────────────────────────────────────────
   Future<void> loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     parentName = prefs.getString(_kParentName) ?? '';
@@ -41,35 +69,84 @@ class ProfileProvider extends ChangeNotifier {
     userRole = prefs.getString(_kUserRole) ?? '';
     _loaded = true;
     notifyListeners();
+
     // Auto-sync on load to ensure Supabase has the latest data
     await syncToSupabase();
 
-    // If local name is empty but Supabase has it, load it down
+    // If local child name is empty, try pulling from Supabase
     if (childName.isEmpty) {
-      final childData = await _supabase.getChild();
-      if (childData != null && childData['child_name'] != null) {
-        childName = childData['child_name'];
-        if (childData['date_of_birth'] != null) {
-          childDob = childData['date_of_birth'];
-        }
-        if (childData['gender'] != null) {
-          childGender = childData['gender'];
-        }
-        notifyListeners();
-      }
+      await _loadChildFromSupabase();
     }
   }
 
-  // ── Supabase Sync ─────────────────────────────────────────────────────────
-  Future<void> syncToSupabase() async {
-    if (parentName.isNotEmpty && parentEmail.isNotEmpty) {
-      await _supabase.upsertProfile(parentName, parentEmail);
+  // ── Load profile from Supabase using Firebase UID ────────────────────────
+  /// Call this after Firebase sign-in to hydrate the provider with
+  /// the Supabase profile + children data.
+  Future<void> loadProfile(String firebaseUid) async {
+    try {
+      _profile = await _profileService.getProfile(firebaseUid);
+
+      if (_profile != null) {
+        // Sync role from Supabase → local
+        userRole = _profile!['role'] as String? ?? 'parent';
+        await _save(_kUserRole, userRole);
+
+        // Sync display name → local
+        final dn = _profile!['display_name'] as String? ?? '';
+        if (dn.isNotEmpty) {
+          parentName = dn;
+          await _save(_kParentName, parentName);
+        }
+
+        // Load first child for this parent
+        await _loadChildFromSupabase();
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ProfileProvider] loadProfile error: $e');
     }
-    
-    // As long as there is a child name, sync the child profile.
-    if (childName.isNotEmpty) {
-      final dob = DateTime.tryParse(childDob) ?? DateTime.now();
-      await _supabase.saveChild(childName, dob, childGender);
+  }
+
+  /// Pulls the first child row from Supabase for the current profile.
+  Future<void> _loadChildFromSupabase() async {
+    if (_profile == null) return;
+    try {
+      final children =
+          await _childService.getChildrenForParent(_profile!['id']);
+      if (children.isNotEmpty) {
+        _currentChild = children.first;
+        childName = _currentChild!['child_name'] ?? '';
+        childDob = _currentChild!['date_of_birth'] ?? '';
+        childGender = _currentChild!['gender'] ?? '';
+        childDiagnosis = _currentChild!['diagnosis_status'] ?? '';
+        await _save(_kChildName, childName);
+        await _save(_kChildDob, childDob);
+        await _save(_kChildGender, childGender);
+        await _save(_kChildDiagnosis, childDiagnosis);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('[ProfileProvider] _loadChildFromSupabase error: $e');
+    }
+  }
+
+  // ── Supabase Sync ────────────────────────────────────────────────────────
+  Future<void> syncToSupabase() async {
+    try {
+      if (parentName.isNotEmpty && parentEmail.isNotEmpty) {
+        final firebaseUid =
+            _profile?['firebase_uid'] as String? ?? '';
+        if (firebaseUid.isNotEmpty) {
+          await _profileService.upsertProfile(
+            firebaseUid: firebaseUid,
+            role: currentRole,
+            displayName: parentName,
+            email: parentEmail,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[ProfileProvider] syncToSupabase error: $e');
     }
   }
 
@@ -118,7 +195,7 @@ class ProfileProvider extends ChangeNotifier {
     childDiagnosis = v;
     await _save(_kChildDiagnosis, v);
     notifyListeners();
-    if (sync) await syncToSupabase(); // Diagnosis is not currently sent to Supabase in saveChild, but keeping pattern consistent
+    if (sync) await syncToSupabase();
   }
 
   Future<void> updatePhotoPath(String path) async {
@@ -133,10 +210,6 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool get hasSelectedRole => userRole.isNotEmpty;
-  bool get isDoctor => userRole == 'doctor';
-  bool get isParent => userRole == 'parent';
-
   // ── Avatar widget helper ──────────────────────────────────────────────────
   ImageProvider get avatarImage {
     if (photoPath != null && File(photoPath!).existsSync()) {
@@ -147,7 +220,6 @@ class ProfileProvider extends ChangeNotifier {
 
   // ── Display helpers ───────────────────────────────────────────────────────
   String get displayParentName => parentName.isNotEmpty ? parentName : 'You';
-
   String get displayChildName =>
       childName.isNotEmpty ? childName : 'Your Child';
 }
