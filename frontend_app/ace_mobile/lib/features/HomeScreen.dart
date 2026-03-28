@@ -5,6 +5,7 @@ import 'package:ace_mobile/features/imitation/imitation_provider.dart';
 import 'package:ace_mobile/features/imitation/imitation_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:ace_mobile/features/profile/profile_screen.dart';
+import 'package:ace_mobile/features/therapy/therapy_checklist_card.dart';
 import 'package:ace_mobile/shared/ProgressCard.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -192,6 +193,19 @@ class _homeScreenState extends State<homeScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+
+                // ── Therapy checklist (realtime) ───────────────────────────
+                Builder(builder: (context) {
+                  final childId =
+                      profile.currentChild?['id'] as String? ?? '';
+                  if (childId.isNotEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: TherapyChecklistCard(childId: childId),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }),
 
                 ProgressGraphCard(),
                 const SizedBox(height: 20),
