@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ace_mobile/backend/backend.dart';
@@ -104,6 +105,48 @@ class ProfileProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('[ProfileProvider] loadProfile error: $e');
+    }
+  }
+
+  /// Whether a Supabase profile has been fetched/created.
+  bool get profileExists => _profile != null;
+
+  /// Called by AuthWrapper after Firebase sign-in.
+  /// Fetches the existing Supabase profile; if none exists,
+  /// [profileExists] will be false → AuthWrapper sends user
+  /// to the role-selection screen.
+  Future<void> initializeFromFirebase(User firebaseUser) async {
+    try {
+      _profile = await _profileService.getProfile(firebaseUser.uid);
+
+      if (_profile != null) {
+        // Existing user — hydrate local state from Supabase
+        userRole = _profile!['role'] as String? ?? 'parent';
+        await _save(_kUserRole, userRole);
+
+        final dn = _profile!['display_name'] as String? ?? '';
+        if (dn.isNotEmpty) {
+          parentName = dn;
+          await _save(_kParentName, parentName);
+        }
+
+        final em = _profile!['email'] as String? ?? '';
+        if (em.isNotEmpty) {
+          parentEmail = em;
+          await _save(_kParentEmail, parentEmail);
+        }
+
+        await _loadChildFromSupabase();
+      }
+      // If _profile is null, user has never selected a role yet.
+      // AuthWrapper will check profileExists and route to RoleSelectionScreen.
+      _loaded = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ProfileProvider] initializeFromFirebase error: $e');
+      // Fallback: mark loaded so the app doesn't get stuck
+      _loaded = true;
+      notifyListeners();
     }
   }
 

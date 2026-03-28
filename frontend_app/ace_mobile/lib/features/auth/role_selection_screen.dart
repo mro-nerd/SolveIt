@@ -1,7 +1,9 @@
+import 'package:ace_mobile/backend/backend.dart';
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/doctor/doctor_bottom_navbar.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:ace_mobile/shared/BottomNavbar.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +21,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
   String? _selectedRole;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -42,12 +45,45 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
   }
 
   Future<void> _selectRole(String role) async {
-    setState(() => _selectedRole = role);
+    setState(() {
+      _selectedRole = role;
+      _isSaving = true;
+    });
 
     final profile = context.read<ProfileProvider>();
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+
+    // 1. Save role locally (SharedPreferences)
     await profile.updateUserRole(role);
 
+    // 2. Persist to Supabase via ProfileService
+    if (firebaseUser != null) {
+      try {
+        final profileService = ProfileService();
+        await profileService.upsertProfile(
+          firebaseUid: firebaseUser.uid,
+          role: role,
+          displayName: firebaseUser.displayName ?? profile.parentName,
+          email: firebaseUser.email ?? profile.parentEmail,
+        );
+
+        // Reload profile from Supabase so provider has fresh data
+        await profile.loadProfile(firebaseUser.uid);
+      } catch (e) {
+        debugPrint('[RoleSelection] Error saving role to Supabase: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Profile saved locally. Sync will retry later.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    }
+
     if (!mounted) return;
+    setState(() => _isSaving = false);
 
     final destination = role == 'doctor'
         ? const DoctorBottomNavBar()
@@ -132,6 +168,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                       iconColor: const Color(0xFF7C3AED),
                       iconBg: const Color(0xFFEDE9FE),
                       isSelected: _selectedRole == 'parent',
+                      isDisabled: _isSaving,
                       onTap: () => _selectRole('parent'),
                     ),
 
@@ -145,8 +182,35 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                       iconColor: const Color(0xFF0284C7),
                       iconBg: const Color(0xFFE0F2FE),
                       isSelected: _selectedRole == 'doctor',
+                      isDisabled: _isSaving,
                       onTap: () => _selectRole('doctor'),
                     ),
+
+                    const SizedBox(height: 24),
+
+                    // ── Loading indicator while saving ──
+                    if (_isSaving)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'Setting up your profile…',
+                              style: TextStyle(
+                                color: Color(0xFF6B7280),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                     const Spacer(),
 
@@ -181,6 +245,7 @@ class _RoleCard extends StatelessWidget {
   final Color iconColor;
   final Color iconBg;
   final bool isSelected;
+  final bool isDisabled;
   final VoidCallback onTap;
 
   const _RoleCard({
@@ -190,18 +255,19 @@ class _RoleCard extends StatelessWidget {
     required this.iconColor,
     required this.iconBg,
     required this.isSelected,
+    this.isDisabled = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: isDisabled ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDisabled ? Colors.grey.shade100 : Colors.white,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: isSelected ? appColors.primary : Colors.grey.shade200,
@@ -253,14 +319,23 @@ class _RoleCard extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 18,
-              color: isSelected ? appColors.primary : Colors.grey.shade400,
-            ),
+            if (_isSavingThis)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 18,
+                color: isSelected ? appColors.primary : Colors.grey.shade400,
+              ),
           ],
         ),
       ),
     );
   }
+
+  bool get _isSavingThis => isSelected && isDisabled;
 }

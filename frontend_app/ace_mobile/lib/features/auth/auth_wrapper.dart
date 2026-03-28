@@ -29,6 +29,8 @@ class AuthWrapper extends StatelessWidget {
           return const loginPage();
         }
 
+        final firebaseUser = snapshot.data!;
+
         // Logged in → check if onboarding has been seen
         return FutureBuilder<bool>(
           future: _hasSeenOnboarding(),
@@ -47,24 +49,62 @@ class AuthWrapper extends StatelessWidget {
               return const OnboardingScreen();
             }
 
-            // Check if role has been selected
-            final profile = context.watch<ProfileProvider>();
+            // ── Initialize profile from Supabase ──
+            return FutureBuilder<void>(
+              future: _initProfile(context, firebaseUser),
+              builder: (context, profileSnap) {
+                if (profileSnap.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    backgroundColor: Color(0xFFDFF2EC),
+                    body: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text(
+                            'Loading your profile…',
+                            style: TextStyle(
+                              color: Color(0xFF6B7280),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
 
-            if (!profile.hasSelectedRole) {
-              return const RoleSelectionScreen();
-            }
+                final profile = context.watch<ProfileProvider>();
 
-            // Route based on role
-            if (profile.isDoctor) {
-              return const DoctorBottomNavBar();
-            }
+                // No Supabase profile yet (first login) → role selection
+                if (!profile.profileExists && !profile.hasSelectedRole) {
+                  return const RoleSelectionScreen();
+                }
 
-            // Default: parent flow
-            return const CustomBottomNavBar();
+                // Route based on role
+                if (profile.isDoctor) {
+                  return const DoctorBottomNavBar();
+                }
+
+                // Default: parent flow
+                return const CustomBottomNavBar();
+              },
+            );
           },
         );
       },
     );
+  }
+
+  /// Initializes the profile from Supabase. This is called once
+  /// when the user is logged in and onboarding is done.
+  Future<void> _initProfile(BuildContext context, User firebaseUser) async {
+    final profile = context.read<ProfileProvider>();
+    // Only initialize once per app session
+    if (!profile.profileExists && !profile.isLoaded) {
+      await profile.initializeFromFirebase(firebaseUser);
+    }
   }
 
   Future<bool> _hasSeenOnboarding() async {
