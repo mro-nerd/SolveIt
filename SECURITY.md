@@ -15,7 +15,7 @@ We take the security of ACE seriously, especially given the sensitive nature of 
 
 If you discover a security vulnerability, please do NOT report it by creating a public GitHub issue.
 
-Instead, please send an email to **[singhkhusneet601@gmail.com]**
+Instead, please send an email to **singhkhusneet601@gmail.com**
 
 ### What to include in your report:
 
