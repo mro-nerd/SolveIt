@@ -1,6 +1,7 @@
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/auth/auth_wrapper.dart';
 import 'package:ace_mobile/features/auth/role_selection_screen.dart';
+import 'package:ace_mobile/features/profile/join_code_card.dart';
 import 'package:ace_mobile/features/profile/privacy_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -515,6 +516,11 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                       const SizedBox(height: 24),
 
+                      // Join code — only for parents with a child
+                      if (profile.isParent &&
+                          profile.currentChild?['join_code'] != null)
+                        ..._buildJoinCodeSection(profile),
+
                       // Options section
                       _SectionHeader(
                         icon: Icons.settings_rounded,
@@ -586,6 +592,21 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
       ),
     );
+  }
+
+  // ── Join code section ──────────────────────────────────────────────────────
+  List<Widget> _buildJoinCodeSection(ProfileProvider profile) {
+    return [
+      _SectionHeader(
+        icon: Icons.link_rounded,
+        label: 'Connect with Doctor',
+      ),
+      const SizedBox(height: 12),
+      JoinCodeCard(
+        joinCode: profile.currentChild?['join_code'] as String?,
+      ),
+      const SizedBox(height: 24),
+    ];
   }
 
   // ── Date picker helper ────────────────────────────────────────────────────

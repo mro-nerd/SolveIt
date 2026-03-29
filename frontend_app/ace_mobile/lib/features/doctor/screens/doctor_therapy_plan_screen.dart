@@ -1,7 +1,12 @@
+import 'package:ace_mobile/backend/backend.dart';
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/doctor/screens/patient_detail_screen.dart';
+import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:shimmer/shimmer.dart';
 
 class DoctorTherapyPlanScreen extends StatefulWidget {
   final PatientData patient;
@@ -14,707 +19,1024 @@ class DoctorTherapyPlanScreen extends StatefulWidget {
 }
 
 class _DoctorTherapyPlanScreenState extends State<DoctorTherapyPlanScreen> {
-  String _selectedPeriod = 'Last 7 Days';
+  final TherapyService _therapyService = TherapyService();
+
+  bool _isLoading = true;
+  bool _isSaving = false;
+  String? _error;
+
+  // Plan data
+  String? _planId;
+  String _selectedLevel = 'beginner';
+  final TextEditingController _notesCtrl = TextEditingController();
+  List<Map<String, dynamic>> _actions = [];
+
+  // Levels
+  static const _levels = ['beginner', 'intermediate', 'advanced'];
+  static const _levelLabels = {
+    'beginner': 'Beginner',
+    'intermediate': 'Intermediate',
+    'advanced': 'Advanced',
+  };
+  static const _levelIcons = {
+    'beginner': Icons.looks_one_rounded,
+    'intermediate': Icons.looks_two_rounded,
+    'advanced': Icons.looks_3_rounded,
+  };
+  static const _levelColors = {
+    'beginner': Color(0xFF059669),
+    'intermediate': Color(0xFF0284C7),
+    'advanced': Color(0xFF7C3AED),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlan();
+  }
+
+  @override
+  void dispose() {
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPlan() async {
+    if (widget.patient.childId == null) {
+      setState(() {
+        _isLoading = false;
+        _error = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final plan = await _therapyService.getPlanForChild(
+        widget.patient.childId!,
+      );
+
+      if (plan != null) {
+        _planId = plan['id'] as String?;
+        _selectedLevel = plan['therapy_level'] as String? ?? 'beginner';
+        _notesCtrl.text = plan['notes'] as String? ?? '';
+        final rawActions = plan['therapy_actions'] as List? ?? [];
+        _actions = rawActions
+            .map((a) => Map<String, dynamic>.from(a as Map))
+            .toList();
+      }
+
+      setState(() => _isLoading = false);
+    } catch (e) {
+      debugPrint('[TherapyPlanScreen] Error loading plan: $e');
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  Future<void> _savePlan() async {
+    if (widget.patient.childId == null) return;
+
+    final profileProvider = context.read<ProfileProvider>();
+    final doctorId = profileProvider.currentProfile?['id'] as String?;
+    if (doctorId == null) {
+      _showError('Doctor profile not found');
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final planId = await _therapyService.upsertPlan(
+        childId: widget.patient.childId!,
+        doctorId: doctorId,
+        level: _selectedLevel,
+        notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+      );
+      _planId = planId;
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Plan saved successfully',
+              style: GoogleFonts.poppins(color: Colors.white),
+            ),
+            backgroundColor: const Color(0xFF059669),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      debugPrint('[TherapyPlanScreen] Save error: $e');
+      _showError('Failed to save plan. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _deleteAction(String actionId, int index) async {
+    try {
+      await _therapyService.deleteAction(actionId);
+      setState(() => _actions.removeAt(index));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Action deleted',
+              style: GoogleFonts.poppins(color: Colors.white),
+            ),
+            backgroundColor: Colors.grey.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[TherapyPlanScreen] Delete error: $e');
+      _showError('Failed to delete action');
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red),
+            const SizedBox(width: 8),
+            Text('Error', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(message, style: GoogleFonts.poppins()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('OK', style: GoogleFonts.poppins(color: appColors.primary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddActionSheet() {
+    final titleCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+    bool isSavingAction = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                24,
+                24,
+                MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Add Therapy Action',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Title
+                  _SheetField(
+                    label: 'Title *',
+                    controller: titleCtrl,
+                    hint: 'e.g. Eye contact exercise',
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Description
+                  _SheetField(
+                    label: 'Description',
+                    controller: descCtrl,
+                    hint: 'Optional details...',
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Due date
+                  Text(
+                    'Due Date',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        initialDate: selectedDate,
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                        builder: (c, child) => Theme(
+                          data: Theme.of(c).copyWith(
+                            colorScheme: ColorScheme.light(
+                              primary: appColors.primary,
+                            ),
+                          ),
+                          child: child!,
+                        ),
+                      );
+                      if (picked != null) {
+                        setSheetState(() => selectedDate = picked);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today_rounded,
+                            size: 18,
+                            color: appColors.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            DateFormat('MMM d, yyyy').format(selectedDate),
+                            style: GoogleFonts.poppins(fontSize: 14),
+                          ),
+                          const Spacer(),
+                          Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Colors.grey.shade400,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Save button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isSavingAction || titleCtrl.text.trim().isEmpty
+                          ? null
+                          : () async {
+                              if (titleCtrl.text.trim().isEmpty) return;
+                              if (_planId == null) {
+                                Navigator.pop(ctx);
+                                _showError(
+                                  'Please save the plan first before adding actions.',
+                                );
+                                return;
+                              }
+
+                              setSheetState(() => isSavingAction = true);
+                              try {
+                                await _therapyService.upsertAction(
+                                  planId: _planId!,
+                                  title: titleCtrl.text.trim(),
+                                  description: descCtrl.text.trim().isEmpty
+                                      ? null
+                                      : descCtrl.text.trim(),
+                                  dueDate: selectedDate,
+                                );
+                                if (mounted) {
+                                  Navigator.pop(ctx);
+                                  _loadPlan(); // Refresh
+                                }
+                              } catch (e) {
+                                setSheetState(() => isSavingAction = false);
+                                debugPrint(
+                                  '[TherapyPlanScreen] Add action error: $e',
+                                );
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: appColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        disabledBackgroundColor: Colors.grey.shade300,
+                      ),
+                      child: isSavingAction
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              'Add Action',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Header with back button ──
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.arrow_back_ios_rounded,
-                            size: 20,
-                            color: appColors.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Back',
-                            style: GoogleFonts.poppins(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: appColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'Therapy Plan',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF111827),
-                      ),
-                    ),
-                    const Spacer(),
-                    Icon(Icons.more_horiz, color: Colors.grey.shade500),
-                  ],
-                ),
-                const SizedBox(height: 24),
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: SafeArea(
+        child: _isLoading
+            ? _buildSkeleton()
+            : _error != null
+                ? _buildErrorState()
+                : _buildContent(),
+      ),
+    );
+  }
 
-                // ── Patient Header ──
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8F4F0),
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Center(
-                              child: Text(
-                                widget.patient.name
-                                    .split(' ')
-                                    .map((n) => n[0])
-                                    .join(),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: appColors.primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Patient',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11,
-                                    color: const Color(0xFF9CA3AF),
-                                  ),
-                                ),
-                                Text(
-                                  widget.patient.name,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF111827),
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(
-                                          0xFF059669,
-                                        ).withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        widget.patient.status,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF059669),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        'Since ${widget.patient.since}',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          color: const Color(0xFF9CA3AF),
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // ── Level & Engagement ──
-                      Row(
-                        children: [
-                          // Current Level
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: const Color(
-                                            0xFF0284C7,
-                                          ).withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.trending_up_rounded,
-                                          size: 16,
-                                          color: Color(0xFF0284C7),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Flexible(
-                                        child: Text(
-                                          'Current\nLevel',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 11,
-                                            color: const Color(0xFF6B7280),
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 2,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    'Level 2',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF111827),
-                                    ),
-                                  ),
-                                  Text(
-                                    'Intermediate Skills',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 11,
-                                      color: const Color(0xFF9CA3AF),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Engagement
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: const Color(
-                                            0xFF059669,
-                                          ).withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.favorite_rounded,
-                                          size: 16,
-                                          color: Color(0xFF059669),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Engagement',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          color: const Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  RichText(
-                                    text: TextSpan(
-                                      children: [
-                                        TextSpan(
-                                          text: '85',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF111827),
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: ' /100',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 13,
-                                            color: const Color(0xFF9CA3AF),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  SizedBox(height: 16),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // ── Weekly Progress ──
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Weekly Progress',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF111827),
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                Text(
-                                  _selectedPeriod,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    color: const Color(0xFF6B7280),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.keyboard_arrow_down,
-                                  size: 18,
-                                  color: Colors.grey.shade500,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      // Chart
-                      SizedBox(
-                        height: 140,
-                        child: CustomPaint(
-                          size: const Size(double.infinity, 140),
-                          painter: _WeeklyChartPainter(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Day labels
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-                            .map(
-                              (d) => Text(
-                                d,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: const Color(0xFF9CA3AF),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // ── Assigned Games ──
-                Row(
-                  children: [
-                    Text(
-                      'Assigned Games',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF111827),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'See All',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: appColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                _GameCard(
-                  name: 'Emotion Recognition',
-                  category: 'Social Skills',
-                  duration: '15 min/day',
-                  difficulty: 'NORMAL',
-                  difficultyColor: const Color(0xFF059669),
-                  icon: Icons.emoji_emotions_rounded,
-                  iconColor: const Color(0xFFF59E0B),
-                ),
-                const SizedBox(height: 10),
-                _GameCard(
-                  name: 'Shape Sorter',
-                  category: 'Cognitive',
-                  duration: '10 min/day',
-                  difficulty: 'EASY',
-                  difficultyColor: const Color(0xFF0284C7),
-                  icon: Icons.category_rounded,
-                  iconColor: const Color(0xFF7C3AED),
-                ),
-                const SizedBox(height: 10),
-                _GameCard(
-                  name: 'Verbal Mimicry',
-                  category: 'Speech',
-                  duration: '20 min/day',
-                  difficulty: 'HERO',
-                  difficultyColor: const Color(0xFFDC2626),
-                  icon: Icons.record_voice_over_rounded,
-                  iconColor: const Color(0xFFDC2626),
-                ),
-                const SizedBox(height: 20),
-
-                // ── Adjust Difficulty Button ──
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: appColors.primary,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: appColors.primary.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.tune_rounded, color: Colors.white),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Adjust Difficulty',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // ── Bottom buttons ──
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.flag_rounded,
-                              size: 20,
-                              color: appColors.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Assign Goal',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF374151),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              size: 20,
-                              color: appColors.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Feedback',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF374151),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-              ],
+  Widget _buildSkeleton() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 20,
+              width: 80,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-          ),
+            const SizedBox(height: 24),
+            Container(
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...List.generate(
+              3,
+              (_) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Container(
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
-}
 
-// ── Weekly Chart Painter ──────────────────────────────────────────────────────
-
-class _WeeklyChartPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final points = [0.3, 0.45, 0.4, 0.55, 0.65, 0.6, 0.75];
-    final paint = Paint()
-      ..color = const Color(0xFF0284C7)
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          const Color(0xFF0284C7).withValues(alpha: 0.15),
-          const Color(0xFF0284C7).withValues(alpha: 0.0),
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            _error ?? 'Something went wrong',
+            style: GoogleFonts.poppins(color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          TextButton.icon(
+            onPressed: _loadPlan,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+          ),
         ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-
-    final path = Path();
-    final fillPath = Path();
-
-    for (int i = 0; i < points.length; i++) {
-      final x = (i / (points.length - 1)) * size.width;
-      final y = size.height - (points[i] * size.height);
-
-      if (i == 0) {
-        path.moveTo(x, y);
-        fillPath.moveTo(x, size.height);
-        fillPath.lineTo(x, y);
-      } else {
-        final prevX = ((i - 1) / (points.length - 1)) * size.width;
-        final prevY = size.height - (points[i - 1] * size.height);
-        final cpX = (prevX + x) / 2;
-        path.cubicTo(cpX, prevY, cpX, y, x, y);
-        fillPath.cubicTo(cpX, prevY, cpX, y, x, y);
-      }
-    }
-
-    fillPath.lineTo(size.width, size.height);
-    fillPath.close();
-
-    canvas.drawPath(fillPath, fillPaint);
-    canvas.drawPath(path, paint);
-
-    // Draw dots
-    final dotPaint = Paint()
-      ..color = const Color(0xFF0284C7)
-      ..style = PaintingStyle.fill;
-    final dotBorder = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    for (int i = 0; i < points.length; i++) {
-      final x = (i / (points.length - 1)) * size.width;
-      final y = size.height - (points[i] * size.height);
-      canvas.drawCircle(Offset(x, y), 5, dotBorder);
-      canvas.drawCircle(Offset(x, y), 3, dotPaint);
-    }
+      ),
+    );
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  Widget _buildContent() {
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Header ──
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.arrow_back_ios_rounded,
+                              size: 20,
+                              color: appColors.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Back',
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: appColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Therapy Plan',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF111827),
+                        ),
+                      ),
+                      const Spacer(),
+                      const SizedBox(width: 50), // balance
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Patient name
+                  Center(
+                    child: Text(
+                      widget.patient.name,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Therapy Level Selector ──
+                  Text(
+                    'Therapy Level',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: _levels.map((level) {
+                      final isSelected = _selectedLevel == level;
+                      final color = _levelColors[level]!;
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: level != 'advanced' ? 8 : 0,
+                          ),
+                          child: GestureDetector(
+                            onTap: () =>
+                                setState(() => _selectedLevel = level),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? color
+                                    : color.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? color
+                                      : color.withValues(alpha: 0.2),
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: color.withValues(alpha: 0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ]
+                                    : [],
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    _levelIcons[level],
+                                    size: 22,
+                                    color: isSelected ? Colors.white : color,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _levelLabels[level]!,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          isSelected ? Colors.white : color,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Notes ──
+                  Text(
+                    'Notes',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: TextField(
+                      controller: _notesCtrl,
+                      maxLines: 4,
+                      style: GoogleFonts.poppins(fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Add clinical notes (optional)...',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.all(14),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Daily Actions ──
+                  Row(
+                    children: [
+                      Text(
+                        'Daily Actions',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF111827),
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: _planId != null
+                            ? _showAddActionSheet
+                            : () => _showError(
+                                  'Save the plan first to add actions.',
+                                ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: appColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.add,
+                                size: 16,
+                                color: appColors.primary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Add',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: appColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  if (_actions.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.checklist_rounded,
+                            size: 40,
+                            color: Colors.grey.shade300,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No actions yet',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          Text(
+                            _planId == null
+                                ? 'Save the plan first, then add actions'
+                                : 'Tap "Add" to create therapy actions',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.grey.shade400,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ..._actions.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final action = entry.value;
+                      return _ActionCard(
+                        action: action,
+                        onDelete: () {
+                          final actionId = action['id'] as String?;
+                          if (actionId != null) {
+                            _deleteAction(actionId, index);
+                          }
+                        },
+                      );
+                    }),
+
+                  const SizedBox(height: 16),
+
+                  // ── AI Suggest Button ──
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '✨ AI suggestions coming soon!',
+                              style: GoogleFonts.poppins(color: Colors.white),
+                            ),
+                            backgroundColor: const Color(0xFF7C3AED),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.auto_awesome, size: 18),
+                      label: Text(
+                        'Suggest with AI',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF7C3AED),
+                        side: const BorderSide(color: Color(0xFF7C3AED)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // ── Bottom save button ──
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isSaving ? null : _savePlan,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: appColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+                disabledBackgroundColor: Colors.grey.shade300,
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      _planId != null ? 'Update Plan' : 'Save Plan',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-// ── Game Card ─────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Action Card (dismissible)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-class _GameCard extends StatelessWidget {
-  final String name;
-  final String category;
-  final String duration;
-  final String difficulty;
-  final Color difficultyColor;
-  final IconData icon;
-  final Color iconColor;
+class _ActionCard extends StatelessWidget {
+  final Map<String, dynamic> action;
+  final VoidCallback onDelete;
 
-  const _GameCard({
-    required this.name,
-    required this.category,
-    required this.duration,
-    required this.difficulty,
-    required this.difficultyColor,
-    required this.icon,
-    required this.iconColor,
+  const _ActionCard({required this.action, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final title = action['title'] as String? ?? 'Untitled';
+    final desc = action['description'] as String?;
+    final dueDate = action['due_date'] as String?;
+    final isCompleted = action['is_completed'] as bool? ?? false;
+
+    return Dismissible(
+      key: Key(action['id']?.toString() ?? title),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDelete(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(Icons.delete_outline, color: Colors.red),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: isCompleted
+                    ? const Color(0xFF059669).withValues(alpha: 0.1)
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isCompleted
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                size: 18,
+                color: isCompleted ? const Color(0xFF059669) : Colors.grey,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF111827),
+                      decoration: isCompleted
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
+                  ),
+                  if (desc != null && desc.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        desc,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: const Color(0xFF6B7280),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (dueDate != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: appColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _formatDueDate(dueDate),
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: appColors.primary,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDueDate(String dateStr) {
+    try {
+      final date = DateTime.parse(dateStr);
+      return DateFormat('MMM d').format(date);
+    } catch (_) {
+      return dateStr;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Sheet Field widget
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _SheetField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final String hint;
+  final int maxLines;
+
+  const _SheetField({
+    required this.label,
+    required this.controller,
+    required this.hint,
+    this.maxLines = 1,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF6B7280),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          style: GoogleFonts.poppins(fontSize: 14),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: GoogleFonts.poppins(
+              fontSize: 14,
+              color: const Color(0xFF9CA3AF),
             ),
-            child: Icon(icon, size: 24, color: iconColor),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF111827),
-                  ),
-                ),
-                Text(
-                  '$category • $duration',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: const Color(0xFF9CA3AF),
-                  ),
-                ),
-              ],
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: appColors.primary, width: 1.5),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: difficultyColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              difficulty,
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: difficultyColor,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Icon(Icons.chevron_right, color: Colors.grey.shade400),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
