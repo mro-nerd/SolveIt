@@ -38,9 +38,12 @@ class ProfileProvider extends ChangeNotifier {
   // ── Supabase-backed state ────────────────────────────────────────────────
   Map<String, dynamic>? _profile;       // full profile row from Supabase
   Map<String, dynamic>? _currentChild;  // current child row from Supabase
+  List<Map<String, dynamic>> _children = []; // all children for this parent
 
   Map<String, dynamic>? get currentProfile => _profile;
   Map<String, dynamic>? get currentChild => _currentChild;
+  List<Map<String, dynamic>> get children => _children;
+  bool get hasMultipleChildren => _children.length > 1;
 
   bool _loaded = false;
   bool get isLoaded => _loaded;
@@ -150,27 +153,68 @@ class ProfileProvider extends ChangeNotifier {
     }
   }
 
-  /// Pulls the first child row from Supabase for the current profile.
+  /// Pulls all children from Supabase for the current profile
+  /// and sets the first one (or previously selected one) as active.
   Future<void> _loadChildFromSupabase() async {
     if (_profile == null) return;
     try {
-      final children =
+      _children =
           await _childService.getChildrenForParent(_profile!['id']);
-      if (children.isNotEmpty) {
-        _currentChild = children.first;
-        childName = _currentChild!['child_name'] ?? '';
-        childDob = _currentChild!['date_of_birth'] ?? '';
-        childGender = _currentChild!['gender'] ?? '';
-        childDiagnosis = _currentChild!['diagnosis_status'] ?? '';
-        await _save(_kChildName, childName);
-        await _save(_kChildDob, childDob);
-        await _save(_kChildGender, childGender);
-        await _save(_kChildDiagnosis, childDiagnosis);
+      if (_children.isNotEmpty) {
+        // Keep current child if still valid, otherwise pick first
+        if (_currentChild != null) {
+          final stillExists = _children.any(
+            (c) => c['id'] == _currentChild!['id'],
+          );
+          if (!stillExists) _currentChild = _children.first;
+        } else {
+          _currentChild = _children.first;
+        }
+        _hydrateLocalFromChild(_currentChild!);
         notifyListeners();
       }
     } catch (e) {
       debugPrint('[ProfileProvider] _loadChildFromSupabase error: $e');
     }
+  }
+
+  /// Hydrate local SharedPreferences state from a child map.
+  Future<void> _hydrateLocalFromChild(Map<String, dynamic> child) async {
+    childName = child['child_name'] ?? '';
+    childDob = child['date_of_birth'] ?? '';
+    childGender = child['gender'] ?? '';
+    childDiagnosis = child['diagnosis_status'] ?? '';
+    await _save(_kChildName, childName);
+    await _save(_kChildDob, childDob);
+    await _save(_kChildGender, childGender);
+    await _save(_kChildDiagnosis, childDiagnosis);
+  }
+
+  /// Switch the active child (used when parent has multiple children).
+  void switchChild(Map<String, dynamic> child) {
+    _currentChild = child;
+    _hydrateLocalFromChild(child);
+    notifyListeners();
+  }
+
+  /// Add a brand-new child via the "Add Child" flow.
+  /// Returns the newly created child map (which includes the generated join_code).
+  Future<Map<String, dynamic>> addChild({
+    required String name,
+    required DateTime dob,
+    required String gender,
+  }) async {
+    if (_profile == null) throw Exception('Profile not loaded');
+    final newChild = await _childService.createChild(
+      parentId: _profile!['id'],
+      name: name,
+      dob: dob,
+      gender: gender,
+    );
+    // Reload list & switch to the new child
+    await _loadChildFromSupabase();
+    switchChild(newChild);
+    return newChild;
   }
 
   // ── Supabase Sync ────────────────────────────────────────────────────────
@@ -185,6 +229,30 @@ class ProfileProvider extends ChangeNotifier {
             role: currentRole,
             displayName: parentName,
             email: parentEmail,
+          );
+        }
+      }
+
+      if (_currentChild != null) {
+        final childId = _currentChild!['id'] as String?;
+        if (childId != null && childName.isNotEmpty) {
+          String formattedDob = childDob;
+          // Frontend typically sets dob as 'DD / MM / YYYY'
+          if (childDob.contains('/')) {
+            final parts = childDob.split('/');
+            if (parts.length == 3) {
+              final d = parts[0].trim().padLeft(2, '0');
+              final m = parts[1].trim().padLeft(2, '0');
+              final y = parts[2].trim();
+              formattedDob = '$y-$m-$d';
+            }
+          }
+          await _childService.updateChild(
+            childId: childId,
+            name: childName,
+            dob: formattedDob,
+            gender: childGender.isNotEmpty ? childGender : 'Not specified',
+            diagnosisStatus: childDiagnosis,
           );
         }
       }

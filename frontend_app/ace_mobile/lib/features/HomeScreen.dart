@@ -68,33 +68,75 @@ class _homeScreenState extends State<homeScreen> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'CARING FOR',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.primary.withValues(alpha: 0.6),
-                                fontSize: 11,
-                                letterSpacing: 1.0,
+                    // ── Child switcher / static name ──────────────────────
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'CARING FOR',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withValues(alpha: 0.6),
+                                  fontSize: 11,
+                                  letterSpacing: 1.0,
+                                ),
+                          ),
+                          if (profile.hasMultipleChildren)
+                            // Dropdown when >1 child
+                            DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: profile.currentChild?['id'] as String?,
+                                isDense: true,
+                                icon: Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  size: 22,
+                                ),
+                                items: profile.children.map((child) {
+                                  return DropdownMenuItem<String>(
+                                    value: child['id'] as String,
+                                    child: Text(
+                                      child['child_name'] ?? 'Unnamed',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary
+                                                .withValues(alpha: 0.85),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (id) {
+                                  if (id == null) return;
+                                  final selected = profile.children.firstWhere(
+                                    (c) => c['id'] == id,
+                                  );
+                                  profile.switchChild(selected);
+                                },
                               ),
-                        ),
-                        Text(
-                          profile.displayChildName,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.primary.withValues(alpha: 0.85),
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                      ],
+                            )
+                          else
+                            // Static name when 1 child
+                            Text(
+                              profile.displayChildName,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary.withValues(alpha: 0.85),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                        ],
+                      ),
                     ),
-                    const Spacer(),
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: const BoxDecoration(

@@ -1,6 +1,7 @@
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/auth/auth_wrapper.dart';
 import 'package:ace_mobile/features/auth/role_selection_screen.dart';
+import 'package:ace_mobile/features/profile/add_child_screen.dart';
 import 'package:ace_mobile/features/profile/join_code_card.dart';
 import 'package:ace_mobile/features/profile/privacy_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
@@ -553,6 +554,31 @@ class _ProfileScreenState extends State<ProfileScreen>
                             label: 'Help & Support',
                             color: const Color(0xFFF97316),
                             onTap: () {},
+                          ),
+                          _divider(),
+                          _OptionTile(
+                            icon: Icons.child_care_rounded,
+                            label: 'Add Child',
+                            color: const Color(0xFF10B981),
+                            onTap: () async {
+                              final result = await Navigator.of(context,
+                                      rootNavigator: true)
+                                  .push<bool>(
+                                MaterialPageRoute(
+                                  builder: (_) => const AddChildScreen(),
+                                ),
+                              );
+                              if (result == true && mounted) {
+                                // Controllers need refreshing with new child data
+                                final p = context.read<ProfileProvider>();
+                                _childNameCtrl.text = p.childName;
+                                _childDobCtrl.text = p.childDob;
+                                _childDiagnosisCtrl.text = p.childDiagnosis;
+                                _selectedGender = p.childGender.isNotEmpty
+                                    ? p.childGender
+                                    : null;
+                              }
+                            },
                           ),
                           _divider(),
                           _OptionTile(

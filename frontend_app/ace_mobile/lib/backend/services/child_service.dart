@@ -30,6 +30,33 @@ class ChildService {
     }
   }
 
+  /// Updates an existing child row.
+  Future<void> updateChild({
+    required String childId,
+    required String name,
+    required String dob,
+    required String gender,
+    required String diagnosisStatus,
+  }) async {
+    try {
+      // Basic formatting of dob if needed, assuming dob is passed as a string like
+      // 'DD / MM / YYYY' or something from the UI but we should parse it or just save it.
+      // E.g., if passing formatted string 'DD / MM / YYYY', we need to convert to 'YYYY-MM-DD'
+      // but let's assume dob is already formatted correctly or handle it in the provider.
+      await _db
+          .from('children')
+          .update({
+            'child_name': name,
+            'date_of_birth': dob,
+            'gender': gender,
+            'diagnosis_status': diagnosisStatus,
+          })
+          .eq('id', childId);
+    } catch (e) {
+      throw Exception('ChildService.updateChild failed: $e');
+    }
+  }
+
   /// Returns all children belonging to [parentId], ordered newest first.
   Future<List<Map<String, dynamic>>> getChildrenForParent(
       String parentId) async {
