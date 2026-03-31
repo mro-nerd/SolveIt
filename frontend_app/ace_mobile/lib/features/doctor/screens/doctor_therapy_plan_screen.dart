@@ -105,8 +105,13 @@ class _DoctorTherapyPlanScreenState extends State<DoctorTherapyPlanScreen> {
 
     final profileProvider = context.read<ProfileProvider>();
     final doctorId = profileProvider.currentProfile?['id'] as String?;
-    if (doctorId == null) {
-      _showError('Doctor profile not found');
+
+    // Debug: show exactly what IDs we have before saving
+    debugPrint('[TherapyPlanScreen] currentProfile: ${profileProvider.currentProfile}');
+    debugPrint('[TherapyPlanScreen] doctorId=$doctorId  childId=${widget.patient.childId}');
+
+    if (doctorId == null || doctorId.isEmpty) {
+      _showError('Doctor profile not found — currentProfile[\'id\'] is null.\nMake sure you are logged in and profile is loaded.');
       return;
     }
 
@@ -138,7 +143,8 @@ class _DoctorTherapyPlanScreenState extends State<DoctorTherapyPlanScreen> {
       }
     } catch (e) {
       debugPrint('[TherapyPlanScreen] Save error: $e');
-      _showError('Failed to save plan. Please try again.');
+      // Show the REAL error so we can debug it, not a generic message
+      _showError('Save failed:\n${e.toString()}');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

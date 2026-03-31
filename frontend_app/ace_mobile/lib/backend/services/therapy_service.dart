@@ -1,4 +1,5 @@
 import 'package:ace_mobile/backend/supabase_client.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Handles all Supabase operations related to `therapy_plans`
@@ -17,6 +18,16 @@ class TherapyService {
     required String level,
     String? notes,
   }) async {
+    // Null-guard: catch missing IDs early with a meaningful message
+    if (doctorId.isEmpty) {
+      throw Exception('upsertPlan: doctorId is empty — ProfileProvider.currentProfile[\'id\'] was not loaded');
+    }
+    if (childId.isEmpty) {
+      throw Exception('upsertPlan: childId is empty — PatientData.childId was not set');
+    }
+
+    debugPrint('[TherapyService] upsertPlan → childId=$childId  doctorId=$doctorId  level=$level');
+
     try {
       final response = await _db
           .from('therapy_plans')
@@ -33,8 +44,11 @@ class TherapyService {
           .select('id')
           .single();
 
+      debugPrint('[TherapyService] Plan saved: ${response['id']}');
       return response['id'] as String;
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[TherapyService] upsertPlan FAILED: $e');
+      debugPrint('[TherapyService] Stack: $stack');
       throw Exception('TherapyService.upsertPlan failed: $e');
     }
   }

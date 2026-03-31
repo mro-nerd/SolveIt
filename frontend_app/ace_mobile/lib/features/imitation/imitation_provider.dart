@@ -35,9 +35,11 @@ class ImitationProvider extends ChangeNotifier {
   // ── Session saving state ────────────────────────────────────────────────
   bool _isSaving = false;
   String? _saveError;
+  bool _sessionSaved = false;
 
   bool get isSaving => _isSaving;
   String? get saveError => _saveError;
+  bool get sessionSaved => _sessionSaved;
 
   PoseReference? get currentPose =>
       poses.isNotEmpty && currentPoseIndex < poses.length
@@ -189,6 +191,17 @@ class ImitationProvider extends ChangeNotifier {
   /// Saves the completed imitation session to Supabase.
   /// [childId] — from ProfileProvider.currentChild['id'].
   Future<void> saveSessionForChild(String childId) async {
+    if (_sessionSaved || _isSaving) {
+      debugPrint('[Imitation] saveSessionForChild skipped — already saved or saving');
+      return;
+    }
+    if (childId.isEmpty) {
+      debugPrint('[Imitation] ERROR: saveSessionForChild called with empty childId!');
+      _saveError = 'Child not selected — cannot save session';
+      notifyListeners();
+      return;
+    }
+    debugPrint('[Imitation] Attempting save, childId=$childId');
     _isSaving = true;
     _saveError = null;
     notifyListeners();
@@ -224,6 +237,7 @@ class ImitationProvider extends ChangeNotifier {
 
       debugPrint('[Imitation] Session saved: $sessionId');
       _triggerAiSummary(sessionId);
+      _sessionSaved = true;
     } catch (e) {
       _saveError = 'Failed to save session: $e';
       debugPrint('[Imitation] Save error: $e');
@@ -254,6 +268,7 @@ class ImitationProvider extends ChangeNotifier {
     poseResults.clear();
     _isSaving = false;
     _saveError = null;
+    _sessionSaved = false;
     notifyListeners();
   }
 }

@@ -1,3 +1,4 @@
+import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -12,8 +13,30 @@ import 'models/stimulus.dart';
 const _primaryColor = Color(0xFF6C5CE7);
 const _bgColor = Color(0xFFF5F0FF);
 
-class AssessmentResultsScreen extends StatelessWidget {
+class AssessmentResultsScreen extends StatefulWidget {
   const AssessmentResultsScreen({super.key});
+
+  @override
+  State<AssessmentResultsScreen> createState() => _AssessmentResultsScreenState();
+}
+
+class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _triggerSave());
+  }
+
+  void _triggerSave() {
+    final provider = context.read<EmotionAssessmentProvider>();
+    final childId = context.read<ProfileProvider>().currentChild?['id'] as String? ?? '';
+    debugPrint('[EmotionResultsScreen] Triggering save: childId=$childId');
+    if (childId.isNotEmpty) {
+      provider.saveSessionForChild(childId);
+    } else {
+      debugPrint('[EmotionResultsScreen] ERROR: currentChild is null — cannot save session');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +86,11 @@ class AssessmentResultsScreen extends StatelessWidget {
 
               // ── Hero score ──
               _HeroScoreCard(summary: summary),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+
+              // ── Save status banner ──
+              _EmotionSaveStatus(provider: provider),
+              const SizedBox(height: 12),
 
               // ── Key metrics ──
               _MetricsRow(summary: summary),
@@ -444,5 +471,63 @@ class _RoundCard extends StatelessWidget {
     if (pct >= 70) return const Color(0xFF4CAF50);
     if (pct >= 40) return const Color(0xFFFF9800);
     return const Color(0xFFEF5350);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// _EmotionSaveStatus — save status banner
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _EmotionSaveStatus extends StatelessWidget {
+  final EmotionAssessmentProvider provider;
+  const _EmotionSaveStatus({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (provider.isSaving) {
+      return _chip(
+        color: _primaryColor.withValues(alpha: 0.1),
+        icon: const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: _primaryColor)),
+        text: 'Saving session…',
+        textColor: _primaryColor,
+      );
+    }
+    if (provider.saveError == null && !provider.isSaving) {
+      return _chip(
+        color: const Color(0xFFE8F5E9),
+        icon: const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF4CAF50)),
+        text: 'Session saved ✓',
+        textColor: const Color(0xFF388E3C),
+      );
+    }
+    if (provider.saveError != null) {
+      return _chip(
+        color: const Color(0xFFFFEBEE),
+        icon: const Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFE53935)),
+        text: 'Save failed: ${provider.saveError}',
+        textColor: const Color(0xFFE53935),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _chip({
+    required Color color,
+    required Widget icon,
+    required String text,
+    required Color textColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          icon,
+          const SizedBox(width: 6),
+          Flexible(child: Text(text, style: TextStyle(fontSize: 12, color: textColor, fontWeight: FontWeight.w500))),
+        ],
+      ),
+    );
   }
 }

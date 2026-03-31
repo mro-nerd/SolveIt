@@ -1,4 +1,5 @@
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/assessment_provider.dart';
@@ -6,8 +7,34 @@ import 'ai_report_screen.dart';
 
 /// Result screen shown after all 20 M-CHAT-R questions are answered.
 /// Displays risk score, level, per-category breakdown, and retake option.
-class ResultScreen extends StatelessWidget {
+/// Also triggers session save to Supabase via AssessmentProvider.
+class ResultScreen extends StatefulWidget {
   const ResultScreen({super.key});
+
+  @override
+  State<ResultScreen> createState() => _ResultScreenState();
+}
+
+class _ResultScreenState extends State<ResultScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Defer save until after first frame (context is available)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _triggerSave());
+  }
+
+  void _triggerSave() {
+    final assessmentProvider = context.read<AssessmentProvider>();
+    final profileProvider = context.read<ProfileProvider>();
+    final childId = profileProvider.currentChild?['id'] as String? ?? '';
+
+    debugPrint('[ResultScreen] Triggering save: childId=$childId');
+    if (childId.isNotEmpty) {
+      assessmentProvider.saveSessionForChild(childId);
+    } else {
+      debugPrint('[ResultScreen] ERROR: currentChild is null — ProfileProvider not loaded or no child selected');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +90,12 @@ class ResultScreen extends StatelessWidget {
                       const SizedBox(width: 40),
                     ],
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 16),
+
+                  // ── Save status banner ──
+                  _SaveStatusBanner(provider: provider),
+                  const SizedBox(height: 12),
+
 
                   // Score card
                   _ScoreCard(
@@ -538,6 +570,81 @@ class _AiReportButton extends StatelessWidget {
             Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 16),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// _SaveStatusBanner — visual debug confirmation of session save
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _SaveStatusBanner extends StatelessWidget {
+  final AssessmentProvider provider;
+  const _SaveStatusBanner({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (provider.isSaving) {
+      return _banner(
+        color: const Color(0xFFF0F9FF),
+        border: const Color(0xFF0EA5E9),
+        icon: const SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0EA5E9)),
+        ),
+        text: 'Saving session…',
+        textColor: const Color(0xFF0369A1),
+      );
+    }
+    if (provider.sessionSaved) {
+      return _banner(
+        color: const Color(0xFFF0FDF4),
+        border: const Color(0xFF22C55E),
+        icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
+        text: 'Session saved ✓',
+        textColor: const Color(0xFF15803D),
+      );
+    }
+    if (provider.saveError != null) {
+      return _banner(
+        color: const Color(0xFFFFF1F2),
+        border: const Color(0xFFEF4444),
+        icon: const Icon(Icons.error_outline_rounded, size: 16, color: Color(0xFFDC2626)),
+        text: 'Save failed: ${provider.saveError}',
+        textColor: const Color(0xFFDC2626),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _banner({
+    required Color color,
+    required Color border,
+    required Widget icon,
+    required String text,
+    required Color textColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          icon,
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textColor),
+            ),
+          ),
+        ],
       ),
     );
   }

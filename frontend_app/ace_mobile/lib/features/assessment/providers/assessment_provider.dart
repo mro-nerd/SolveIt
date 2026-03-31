@@ -28,9 +28,11 @@ class AssessmentProvider extends ChangeNotifier {
   // ── Session saving state ────────────────────────────────────────────────
   bool _isSaving = false;
   String? _saveError;
+  bool _sessionSaved = false; // guard against double-saves
 
   bool get isSaving => _isSaving;
   String? get saveError => _saveError;
+  bool get sessionSaved => _sessionSaved;
 
   // ─── Public Getters ──────────────────────────────────────────────────────────
 
@@ -103,8 +105,9 @@ class AssessmentProvider extends ChangeNotifier {
     if (isLastQuestion) {
       _status = AssessmentStatus.completed;
       notifyListeners();
-      // Save to Supabase on completion
-      await _saveToSupabase();
+      // Session save is deferred — call saveSessionForChild(childId) from the
+      // result screen once ProfileProvider.currentChild['id'] is available.
+      debugPrint('[AssessmentProvider] Assessment complete — waiting for saveSessionForChild() call from UI');
     } else {
       _currentIndex++;
       notifyListeners();
@@ -134,6 +137,7 @@ class AssessmentProvider extends ChangeNotifier {
     _hasSavedSession = false;
     _saveError = null;
     _isSaving = false;
+    _sessionSaved = false;
     await _repository.clearAnswers();
     notifyListeners();
   }
@@ -191,8 +195,21 @@ class AssessmentProvider extends ChangeNotifier {
   }
 
   /// Saves the session with a specific childId (called from UI after completion).
+  /// Includes guard to prevent double-saves on widget rebuilds.
   Future<void> saveSessionForChild(String childId) async {
+    if (_sessionSaved || _isSaving) {
+      debugPrint('[AssessmentProvider] saveSessionForChild skipped — already saved or saving');
+      return;
+    }
+    if (childId.isEmpty) {
+      debugPrint('[AssessmentProvider] ERROR: saveSessionForChild called with empty childId!');
+      _saveError = 'Child not selected — cannot save session';
+      notifyListeners();
+      return;
+    }
+    debugPrint('[AssessmentProvider] Attempting save, childId=$childId');
     await _saveToSupabase(childId: childId);
+    if (_saveError == null) _sessionSaved = true;
   }
 
   /// Placeholder for Day 4 AI summary generation.

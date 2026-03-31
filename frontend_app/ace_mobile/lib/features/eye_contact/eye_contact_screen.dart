@@ -5,6 +5,7 @@ import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/eye_contact/eye_contact_provider.dart';
 import 'package:ace_mobile/features/eye_contact/widgets/butterfly_animation.dart';
 import 'package:ace_mobile/features/eye_contact/widgets/eye_tracking_overlay.dart';
+import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -55,8 +56,11 @@ class _EyeContactScreenState extends State<EyeContactScreen> {
       if (_secondsLeft <= 0) {
         t.cancel();
         _countdownTimer = null;
-        context.read<EyeContactProvider>().endSession();
+        final provider = context.read<EyeContactProvider>();
+        provider.endSession();
         setState(() => _showResults = true);
+        // Save to Supabase when timer runs out
+        _saveSession(provider);
       }
     });
   }
@@ -66,6 +70,18 @@ class _EyeContactScreenState extends State<EyeContactScreen> {
     _countdownTimer = null;
     p.endSession();
     setState(() => _showResults = true);
+    // Save to Supabase
+    _saveSession(p);
+  }
+
+  void _saveSession(EyeContactProvider p) {
+    final childId = context.read<ProfileProvider>().currentChild?['id'] as String? ?? '';
+    debugPrint('[EyeContactScreen] Saving session: childId=$childId');
+    if (childId.isNotEmpty) {
+      p.saveSessionForChild(childId);
+    } else {
+      debugPrint('[EyeContactScreen] ERROR: currentChild is null — cannot save session');
+    }
   }
 
   void _reset(EyeContactProvider p) {
@@ -170,6 +186,7 @@ class _EyeContactScreenState extends State<EyeContactScreen> {
                                   aligned: provider.alignedFrameCount,
                                   total: provider.totalFrameCount,
                                   onTryAgain: () => _reset(provider),
+                                  provider: provider,
                                 ),
                             ],
                           ),
@@ -434,12 +451,14 @@ class _ResultsCard extends StatelessWidget {
   final int aligned;
   final int total;
   final VoidCallback onTryAgain;
+  final EyeContactProvider provider;
 
   const _ResultsCard({
     required this.score,
     required this.aligned,
     required this.total,
     required this.onTryAgain,
+    required this.provider,
   });
 
   @override
@@ -507,7 +526,10 @@ class _ResultsCard extends StatelessWidget {
                     color: appColors.secondary.withValues(alpha: 0.7),
                   ),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 12),
+                // Save status banner
+                _EyeSaveStatus(provider: provider),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -606,5 +628,49 @@ class _BottomBar extends StatelessWidget {
               ),
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _EyeSaveStatus — inline save status for the results card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EyeSaveStatus extends StatelessWidget {
+  final EyeContactProvider provider;
+  const _EyeSaveStatus({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (provider.isSaving) {
+      return const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4CAF96))),
+          SizedBox(width: 6),
+          Text('Saving…', style: TextStyle(fontSize: 12, color: Color(0xFF4CAF96))),
+        ],
+      );
+    }
+    if (provider.saveError == null && !provider.isSaving) {
+      // After save completes with no error
+      return const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF4CAF96)),
+          SizedBox(width: 4),
+          Text('Session saved ✓', style: TextStyle(fontSize: 12, color: Color(0xFF4CAF96), fontWeight: FontWeight.w600)),
+        ],
+      );
+    }
+    if (provider.saveError != null) {
+      return Text(
+        'Save failed: ${provider.saveError}',
+        style: const TextStyle(fontSize: 11, color: Colors.red),
+        textAlign: TextAlign.center,
+      );
+    }
+    return const SizedBox.shrink();
   }
 }

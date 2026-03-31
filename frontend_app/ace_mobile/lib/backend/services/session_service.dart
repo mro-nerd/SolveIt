@@ -1,4 +1,5 @@
 import 'package:ace_mobile/backend/supabase_client.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Handles all Supabase operations related to the `sessions` table.
@@ -93,5 +94,19 @@ class SessionService {
     if (score < 40) return 'high';
     if (score <= 65) return 'medium';
     return 'low';
+  }
+
+  // ── Debug helpers ────────────────────────────────────────────────────────
+
+  /// Quick smoke-test: saves a dummy session to verify Supabase writes work.
+  /// Usage: await sessionService.testSave(childId)
+  Future<String> testSave(String childId) async {
+    debugPrint('[SessionService] testSave called with childId: $childId');
+    return saveSession(
+      childId: childId,
+      sessionType: 'test',
+      score: 99.0,
+      rawMetrics: {'test': true, 'timestamp': DateTime.now().toIso8601String()},
+    );
   }
 }

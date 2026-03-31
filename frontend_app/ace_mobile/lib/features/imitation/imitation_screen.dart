@@ -1,3 +1,4 @@
+import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -20,6 +21,17 @@ class _ImitationScreenState extends State<ImitationScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ImitationProvider>().loadPoses();
     });
+  }
+
+  /// Triggered when sessionComplete becomes true — saves to Supabase.
+  void _triggerSave(ImitationProvider provider) {
+    final childId = context.read<ProfileProvider>().currentChild?['id'] as String? ?? '';
+    debugPrint('[ImitationScreen] Triggering save: childId=$childId');
+    if (childId.isNotEmpty) {
+      provider.saveSessionForChild(childId);
+    } else {
+      debugPrint('[ImitationScreen] ERROR: currentChild is null — cannot save session');
+    }
   }
 
   void _handleAnglesDetected(Map<String, double> angles) {
@@ -296,6 +308,13 @@ class _ImitationScreenState extends State<ImitationScreen> {
   // ─── Results ──────────────────────────────────────────────────────────
 
   Widget _buildResultsScreen(ImitationProvider provider) {
+    // Trigger save once (provider guard prevents double-saves)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (provider.sessionComplete && !provider.sessionSaved && !provider.isSaving) {
+        _triggerSave(provider);
+      }
+    });
+
     final totalPoses = provider.poses.length;
     final overallPercent = provider.poseResults.isNotEmpty
         ? (provider.poseResults
@@ -378,6 +397,10 @@ class _ImitationScreenState extends State<ImitationScreen> {
                     ]
                   : stars,
             ),
+            const SizedBox(height: 20),
+
+            // Save status
+            _ImitationSaveStatus(provider: provider),
             const SizedBox(height: 20),
 
             // Per-pose breakdown cards
@@ -495,5 +518,48 @@ class _ImitationScreenState extends State<ImitationScreen> {
         ),
       ),
     );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// _ImitationSaveStatus — save status banner for imitation results
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _ImitationSaveStatus extends StatelessWidget {
+  final ImitationProvider provider;
+  const _ImitationSaveStatus({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (provider.isSaving) {
+      return const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6C63FF))),
+          SizedBox(width: 8),
+          Text('Saving session…', style: TextStyle(fontSize: 13, color: Color(0xFF6C63FF))),
+        ],
+      );
+    }
+    if (provider.sessionSaved) {
+      return const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle_rounded, size: 16, color: Colors.green),
+          SizedBox(width: 6),
+          Text('Session saved ✓', style: TextStyle(fontSize: 13, color: Colors.green, fontWeight: FontWeight.w600)),
+        ],
+      );
+    }
+    if (provider.saveError != null) {
+      return Text(
+        'Save failed: ${provider.saveError}',
+        style: const TextStyle(fontSize: 12, color: Colors.red),
+        textAlign: TextAlign.center,
+      );
+    }
+    return const SizedBox.shrink();
   }
 }
