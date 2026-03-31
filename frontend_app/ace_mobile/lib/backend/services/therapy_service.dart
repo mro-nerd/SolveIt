@@ -11,41 +11,67 @@ class TherapyService {
   //  THERAPY PLANS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Creates or updates a therapy plan. Returns the plan id.
+  /// Creates or updates a therapy plan for a child. Returns the plan id.
+  ///
+  /// Uses a manual select → update/insert pattern to avoid relying on
+  /// an ON CONFLICT clause, which requires a DB-level unique constraint.
   Future<String> upsertPlan({
     required String childId,
     required String doctorId,
     required String level,
     String? notes,
   }) async {
-    // Null-guard: catch missing IDs early with a meaningful message
     if (doctorId.isEmpty) {
-      throw Exception('upsertPlan: doctorId is empty — ProfileProvider.currentProfile[\'id\'] was not loaded');
+      throw Exception(
+          'upsertPlan: doctorId is empty — ProfileProvider.currentProfile[\'id\'] was not loaded');
     }
     if (childId.isEmpty) {
-      throw Exception('upsertPlan: childId is empty — PatientData.childId was not set');
+      throw Exception(
+          'upsertPlan: childId is empty — PatientData.childId was not set');
     }
 
-    debugPrint('[TherapyService] upsertPlan → childId=$childId  doctorId=$doctorId  level=$level');
+    debugPrint(
+        '[TherapyService] upsertPlan → childId=$childId  doctorId=$doctorId  level=$level');
 
     try {
-      final response = await _db
+      // 1. Check if a plan already exists for this child.
+      final existing = await _db
           .from('therapy_plans')
-          .upsert(
-            {
+          .select('id')
+          .eq('child_id', childId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      final String planId;
+
+      if (existing != null) {
+        // 2a. Plan exists → UPDATE in place.
+        planId = existing['id'] as String;
+        await _db.from('therapy_plans').update({
+          'doctor_id': doctorId,
+          'therapy_level': level,
+          'notes': notes,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        }).eq('id', planId);
+        debugPrint('[TherapyService] Plan updated: $planId');
+      } else {
+        // 2b. No plan yet → INSERT a new one.
+        final inserted = await _db
+            .from('therapy_plans')
+            .insert({
               'child_id': childId,
               'doctor_id': doctorId,
               'therapy_level': level,
               'notes': notes,
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
-            },
-            onConflict: 'child_id,doctor_id',
-          )
-          .select('id')
-          .single();
+            })
+            .select('id')
+            .single();
+        planId = inserted['id'] as String;
+        debugPrint('[TherapyService] Plan created: $planId');
+      }
 
-      debugPrint('[TherapyService] Plan saved: ${response['id']}');
-      return response['id'] as String;
+      return planId;
     } catch (e, stack) {
       debugPrint('[TherapyService] upsertPlan FAILED: $e');
       debugPrint('[TherapyService] Stack: $stack');
