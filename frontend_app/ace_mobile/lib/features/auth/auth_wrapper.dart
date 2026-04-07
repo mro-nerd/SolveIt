@@ -1,6 +1,4 @@
-import 'package:ace_mobile/features/auth/role_selection_screen.dart';
 import 'package:ace_mobile/features/doctor/doctor_bottom_navbar.dart';
-import 'package:ace_mobile/features/onboarding/onboarding_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +7,10 @@ import 'package:ace_mobile/shared/BottomNavbar.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Decides where the app lands after the splash screen.
+///
+/// • Active Firebase session + saved role → correct dashboard (fast path)
+/// • Otherwise → [loginPage] (GetStarted → ChooseProfession)
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -20,33 +22,50 @@ class AuthWrapper extends StatelessWidget {
         // Still connecting to Firebase
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
+            backgroundColor: Color(0xFFDFF2EC),
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // Not logged in → show login
+        // No active Firebase session → GetStarted
         if (!snapshot.hasData) {
           return const loginPage();
         }
 
         final firebaseUser = snapshot.data!;
 
-        // Logged in → check if onboarding has been seen
-        return FutureBuilder<bool>(
-          future: _hasSeenOnboarding(),
-          builder: (context, onboardingSnap) {
-            if (onboardingSnap.connectionState == ConnectionState.waiting) {
+        // Active session → check saved role for fast routing
+        return FutureBuilder<String?>(
+          future: _getSavedRole(),
+          builder: (context, roleSnap) {
+            if (roleSnap.connectionState == ConnectionState.waiting) {
               return const Scaffold(
                 backgroundColor: Color(0xFFDFF2EC),
-                body: Center(child: CircularProgressIndicator()),
+                body: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading your profile…',
+                        style: TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               );
             }
 
-            final hasSeenOnboarding = onboardingSnap.data ?? false;
+            final savedRole = roleSnap.data;
 
-            // First login → show onboarding before main app
-            if (!hasSeenOnboarding) {
-              return const OnboardingScreen();
+            // No saved role → user never completed role selection
+            // Send them to GetStarted → ChooseProfession
+            if (savedRole == null || savedRole.isEmpty) {
+              return const loginPage();
             }
 
             // ── Initialize profile from Supabase ──
@@ -75,19 +94,10 @@ class AuthWrapper extends StatelessWidget {
                   );
                 }
 
-                final profile = context.watch<ProfileProvider>();
-
-                // No Supabase profile yet (first login) → role selection
-                if (!profile.profileExists && !profile.hasSelectedRole) {
-                  return const RoleSelectionScreen();
-                }
-
-                // Route based on role
-                if (profile.isDoctor) {
+                // Route to the correct dashboard based on saved role
+                if (savedRole == 'doctor') {
                   return const DoctorBottomNavBar();
                 }
-
-                // Default: parent flow
                 return const CustomBottomNavBar();
               },
             );
@@ -97,18 +107,17 @@ class AuthWrapper extends StatelessWidget {
     );
   }
 
-  /// Initializes the profile from Supabase. This is called once
-  /// when the user is logged in and onboarding is done.
+  /// Returns the saved role from SharedPreferences, or null.
+  Future<String?> _getSavedRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_role');
+  }
+
+  /// Initializes the profile from Supabase (once per session).
   Future<void> _initProfile(BuildContext context, User firebaseUser) async {
     final profile = context.read<ProfileProvider>();
-    // Only initialize once per app session
     if (!profile.profileExists && !profile.isLoaded) {
       await profile.initializeFromFirebase(firebaseUser);
     }
-  }
-
-  Future<bool> _hasSeenOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('onboarding_done') ?? false;
   }
 }

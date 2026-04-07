@@ -1,12 +1,13 @@
 import 'package:ace_mobile/backend/backend.dart';
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/auth/signInService.dart';
 import 'package:ace_mobile/features/doctor/doctor_bottom_navbar.dart';
+import 'package:ace_mobile/features/onboarding/onboarding_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
-import 'package:ace_mobile/shared/BottomNavbar.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
@@ -22,6 +23,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
   late Animation<Offset> _slideAnim;
   String? _selectedRole;
   bool _isSaving = false;
+
+  final GoogleAuthService _googleAuthService = GoogleAuthService();
 
   @override
   void initState() {
@@ -50,52 +53,74 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
       _isSaving = true;
     });
 
-    final profile = context.read<ProfileProvider>();
-    final firebaseUser = FirebaseAuth.instance.currentUser;
+    // ── 1. Trigger Google Sign-In ──
+    final firebaseUser = await _googleAuthService.signInWithGoogle();
 
-    // 1. Save role locally (SharedPreferences)
+    if (firebaseUser == null) {
+      // User cancelled sign-in
+      if (mounted) {
+        setState(() {
+          _selectedRole = null;
+          _isSaving = false;
+        });
+      }
+      return;
+    }
+
+    // ── 2. Save role to profile ──
+    final profile = context.read<ProfileProvider>();
     await profile.updateUserRole(role);
 
-    // 2. Persist to Supabase via ProfileService
-    if (firebaseUser != null) {
-      try {
-        final profileService = ProfileService();
-        await profileService.upsertProfile(
-          firebaseUid: firebaseUser.uid,
-          role: role,
-          displayName: firebaseUser.displayName ?? profile.parentName,
-          email: firebaseUser.email ?? profile.parentEmail,
-        );
+    try {
+      final profileService = ProfileService();
+      await profileService.upsertProfile(
+        firebaseUid: firebaseUser.uid,
+        role: role,
+        displayName: firebaseUser.displayName ?? profile.parentName,
+        email: firebaseUser.email ?? profile.parentEmail,
+      );
 
-        // Reload profile from Supabase so provider has fresh data
-        await profile.loadProfile(firebaseUser.uid);
-      } catch (e) {
-        debugPrint('[RoleSelection] Error saving role to Supabase: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Profile saved locally. Sync will retry later.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
+      // Reload profile from Supabase so provider has fresh data
+      await profile.loadProfile(firebaseUser.uid);
+    } catch (e) {
+      debugPrint('[RoleSelection] Error saving role to Supabase: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Profile saved locally. Sync will retry later.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
+    }
+
+    // ── 3. Mark onboarding as done for doctors, not for parents ──
+    if (role == 'doctor') {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('onboarding_done', true);
     }
 
     if (!mounted) return;
     setState(() => _isSaving = false);
 
-    final destination = role == 'doctor'
-        ? const DoctorBottomNavBar()
-        : const CustomBottomNavBar();
+    // ── 4. Navigate based on role ──
+    final Widget destination;
+    if (role == 'doctor') {
+      // Doctors skip onboarding → go straight to dashboard
+      destination = const DoctorBottomNavBar();
+    } else {
+      // Parents see onboarding first
+      destination = const OnboardingScreen();
+    }
 
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => destination,
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 500),
       ),
+      (route) => false,
     );
   }
 
@@ -190,21 +215,21 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
 
                     // ── Loading indicator while saving ──
                     if (_isSaving)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            SizedBox(
+                            const SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                            SizedBox(width: 10),
+                            const SizedBox(width: 10),
                             Text(
-                              'Setting up your profile…',
-                              style: TextStyle(
-                                color: Color(0xFF6B7280),
+                              'Signing in & setting up…',
+                              style: GoogleFonts.poppins(
+                                color: const Color(0xFF6B7280),
                                 fontSize: 13,
                               ),
                             ),

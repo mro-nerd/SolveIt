@@ -1,17 +1,10 @@
 import 'package:ace_mobile/core/constants.dart';
-import 'package:ace_mobile/features/auth/signInService.dart';
-// import 'package:ace_mobile/shared/BottomNavbar.dart'; // Removed
+import 'package:ace_mobile/features/auth/role_selection_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-class loginPage extends StatefulWidget {
+class loginPage extends StatelessWidget {
   const loginPage({super.key});
 
-  @override
-  State<loginPage> createState() => _loginPageState();
-}
-
-class _loginPageState extends State<loginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -20,8 +13,8 @@ class _loginPageState extends State<loginPage> {
           padding: EdgeInsets.symmetric(horizontal: appSize.defaultPadding),
           child: Column(
             children: [
-              Spacer(),
-              //heading text
+              const Spacer(),
+              // ── ACE branding ──
               Text(
                 "ACE",
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -33,14 +26,15 @@ class _loginPageState extends State<loginPage> {
               Text(
                 "Autism Care & Engagement",
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.6),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.6),
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              SizedBox(height: 25),
-              //image
+              const SizedBox(height: 25),
+              // ── Poster image ──
               Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.white, width: 10),
@@ -54,8 +48,8 @@ class _loginPageState extends State<loginPage> {
                   ),
                 ),
               ),
-              SizedBox(height: 25),
-              //text
+              const SizedBox(height: 25),
+              // ── Tagline ──
               RichText(
                 textAlign: TextAlign.center,
                 text: TextSpan(
@@ -65,7 +59,7 @@ class _loginPageState extends State<loginPage> {
                     fontSize: 30,
                   ),
                   children: [
-                    TextSpan(text: "Every Child\nDeserves "),
+                    const TextSpan(text: "Every Child\nDeserves "),
                     TextSpan(
                       text: "Early\nCare",
                       style: TextStyle(color: textColors.secondary),
@@ -73,8 +67,7 @@ class _loginPageState extends State<loginPage> {
                   ],
                 ),
               ),
-              SizedBox(height: 16),
-              //text
+              const SizedBox(height: 16),
               Text(
                 textAlign: TextAlign.center,
                 "Empowering families with clinical autism screening and therapy integration.",
@@ -82,20 +75,65 @@ class _loginPageState extends State<loginPage> {
                   color: textColors.secondary.withValues(alpha: 0.6),
                 ),
               ),
-              SizedBox(height: 20),
-              //login button
-              googleSignInButton(),
-              Spacer(),
-              //divider
-              Container(
+              const SizedBox(height: 20),
+              // ── Get Started button (navigates to role selection, NO sign-in) ──
+              SizedBox(
+                width: MediaQuery.sizeOf(context).width * 0.8,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) =>
+                            const RoleSelectionScreen(),
+                        transitionsBuilder: (_, anim, __, child) =>
+                            FadeTransition(opacity: anim, child: child),
+                        transitionDuration:
+                            const Duration(milliseconds: 400),
+                      ),
+                    );
+                  },
+                  label: Row(
+                    children: [
+                      const Spacer(),
+                      Text(
+                        "Get Started",
+                        style:
+                            Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: textColors.tertiary,
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      Icon(
+                        Icons.arrow_circle_right_rounded,
+                        color: textColors.tertiary,
+                        size: 26,
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                  style: ButtonStyle(
+                    backgroundColor:
+                        WidgetStatePropertyAll(appColors.primary),
+                    shadowColor:
+                        WidgetStatePropertyAll(appColors.primary),
+                    elevation: const WidgetStatePropertyAll(2),
+                    padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+              ),
+              const Spacer(),
+              // ── Footer ──
+              SizedBox(
                 width: MediaQuery.sizeOf(context).width * 0.8,
                 child: Divider(
                   color: Colors.blueGrey.withValues(alpha: 0.6),
                   thickness: 0.5,
                 ),
               ),
-              SizedBox(height: 6),
-              //text
+              const SizedBox(height: 6),
               Text(
                 textAlign: TextAlign.center,
                 "Available in 27 languages",
@@ -103,74 +141,9 @@ class _loginPageState extends State<loginPage> {
                   color: textColors.secondary.withValues(alpha: 0.6),
                 ),
               ),
-              SizedBox(height: 30),
+              const SizedBox(height: 30),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class googleSignInButton extends StatefulWidget {
-  const googleSignInButton({super.key});
-
-  @override
-  State<googleSignInButton> createState() => _googleSignInButtonState();
-}
-
-class _googleSignInButtonState extends State<googleSignInButton> {
-  bool isLoading = false;
-  final GoogleAuthService _googleAuthService = GoogleAuthService();
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: MediaQuery.sizeOf(context).width * 0.8,
-      child: TextButton.icon(
-        onPressed: () async {
-          setState(() => isLoading = true);
-          try {
-            final user = await _googleAuthService.signInWithGoogle();
-            if (user == null) {
-              // User cancelled login or something went wrong
-              setState(() => isLoading = false);
-            }
-          } catch (e) {
-            setState(() => isLoading = false);
-            if (mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text("Login Failed: $e")));
-            }
-          }
-        },
-        label: isLoading
-            ? CircularProgressIndicator(color: Colors.white)
-            : Row(
-                children: [
-                  Spacer(),
-                  Text(
-                    "Get Started",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: textColors.tertiary,
-                    ),
-                  ),
-                  SizedBox(width: 15),
-                  Icon(
-                    Icons.arrow_circle_right_rounded,
-                    color: textColors.tertiary,
-                    size: 26,
-                  ),
-                  Spacer(),
-                ],
-              ),
-
-        style: ButtonStyle(
-          backgroundColor: WidgetStatePropertyAll(appColors.primary),
-          shadowColor: WidgetStatePropertyAll(appColors.primary),
-          elevation: WidgetStatePropertyAll(2),
-          padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 16)),
         ),
       ),
     );

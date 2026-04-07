@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ace_mobile/features/auth/role_selection_screen.dart';
+import 'package:ace_mobile/shared/BottomNavbar.dart';
 
 // ─── Data model ────────────────────────────────────────────────────────────────
 
@@ -348,13 +348,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_done', true);
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
+    // Onboarding is parents-only; go straight to parent dashboard
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const RoleSelectionScreen(),
+        pageBuilder: (_, __, ___) => const CustomBottomNavBar(),
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 500),
       ),
+      (route) => false,
     );
   }
 
