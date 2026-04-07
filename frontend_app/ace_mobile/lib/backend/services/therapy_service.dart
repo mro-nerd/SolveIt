@@ -179,19 +179,42 @@ class TherapyService {
 
   /// Returns a realtime stream of today's therapy actions for a child.
   /// Updates automatically when a doctor modifies actions.
+  ///
+  /// Since RLS is disabled, we explicitly scope by `plan_id` rather than
+  /// relying on row-level security to filter rows.
   Stream<List<Map<String, dynamic>>> streamTodaysActions(
       String childId) {
     final today = DateTime.now().toIso8601String().split('T').first;
 
-    // First, we need the plan id. We'll use a stream that re-fetches.
-    return _db
-        .from('therapy_actions')
-        .stream(primaryKey: ['id'])
-        .eq('due_date', today)
-        .map((rows) {
-          // Filter to only actions belonging to this child's plan
-          // This is handled at the DB level via RLS, so we return all.
-          return List<Map<String, dynamic>>.from(rows);
-        });
+    // 1. Look up the child's therapy plan, then stream actions for that plan.
+    //    Supabase Realtime .stream() only supports a single .eq() filter,
+    //    so we filter by plan_id on the server and by due_date client-side.
+    return Stream.fromFuture(
+      _db
+          .from('therapy_plans')
+          .select('id')
+          .eq('child_id', childId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle(),
+    ).asyncExpand((plan) {
+      if (plan == null) {
+        // No plan exists for this child — emit a single empty list.
+        return Stream.value(<Map<String, dynamic>>[]);
+      }
+
+      final planId = plan['id'] as String;
+
+      return _db
+          .from('therapy_actions')
+          .stream(primaryKey: ['id'])
+          .eq('plan_id', planId)
+          .map((rows) {
+            // Client-side date filter (stream only supports one .eq()).
+            return List<Map<String, dynamic>>.from(
+              rows.where((r) => r['due_date'] == today),
+            );
+          });
+    });
   }
 }

@@ -1,5 +1,5 @@
 import 'package:ace_mobile/core/constants.dart';
-import 'package:ace_mobile/features/auth/auth_wrapper.dart';
+import 'package:ace_mobile/features/auth/loginPage.dart';
 import 'package:ace_mobile/features/auth/role_selection_screen.dart';
 import 'package:ace_mobile/features/profile/add_child_screen.dart';
 import 'package:ace_mobile/features/profile/join_code_card.dart';
@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -169,18 +169,22 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     if (confirmed != true) return;
 
-    // Clear onboarding flag so next login sees onboarding again
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('onboarding_done');
+    // 1. Clear all cached profile / SharedPreferences state
+    if (mounted) await context.read<ProfileProvider>().clearAll();
 
-    // Sign out from both Firebase and Google
+    // 2. Sign out from all auth providers
     await GoogleSignIn().signOut();
     await FirebaseAuth.instance.signOut();
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } catch (_) {
+      // Supabase auth may not be active — safe to ignore
+    }
 
-    // Remove every route and land on AuthWrapper which now shows loginPage.
+    // 3. Navigate to the Get Started screen, removing all routes
     navigator.pushAndRemoveUntil(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const _AuthWrapperRedirect(),
+        pageBuilder: (_, __, ___) => const loginPage(),
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 400),
@@ -850,11 +854,4 @@ class _OptionTile extends StatelessWidget {
   }
 }
 
-// Thin redirect widget — placed at the bottom of the stack after sign-out
-// so AuthWrapper re-evaluates the Firebase auth state and shows loginPage.
-class _AuthWrapperRedirect extends StatelessWidget {
-  const _AuthWrapperRedirect();
-
-  @override
-  Widget build(BuildContext context) => const AuthWrapper();
-}
+// _AuthWrapperRedirect removed — logout now navigates directly to loginPage.

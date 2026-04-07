@@ -333,4 +333,30 @@ class ProfileProvider extends ChangeNotifier {
   String get displayParentName => parentName.isNotEmpty ? parentName : 'You';
   String get displayChildName =>
       childName.isNotEmpty ? childName : 'Your Child';
+
+  // ── Full logout / reset ─────────────────────────────────────────────────
+  /// Clears ALL in-memory state and removes every profile-related key from
+  /// SharedPreferences. Call this during sign-out so the next launch
+  /// starts completely fresh (GetStarted → ChooseProfession).
+  Future<void> clearAll() async {
+    // 1. Wipe in-memory state
+    parentName = '';
+    parentEmail = '';
+    childName = '';
+    childDob = '';
+    childGender = '';
+    childDiagnosis = '';
+    photoPath = null;
+    userRole = '';
+    _profile = null;
+    _currentChild = null;
+    _children = [];
+    _loaded = false;
+
+    // 2. Wipe SharedPreferences (all profile + onboarding keys)
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    notifyListeners();
+  }
 }

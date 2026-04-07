@@ -1,11 +1,14 @@
 import 'package:ace_mobile/core/constants.dart';
-import 'package:ace_mobile/features/auth/auth_wrapper.dart';
+import 'package:ace_mobile/features/auth/loginPage.dart';
 import 'package:ace_mobile/features/auth/role_selection_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 
 class DoctorProfileScreen extends StatelessWidget {
   const DoctorProfileScreen({super.key});
@@ -292,10 +295,28 @@ class DoctorProfileScreen extends StatelessWidget {
   }
 
   Future<void> _handleLogout(BuildContext context) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+
+    // 1. Clear all cached profile / SharedPreferences state
+    await context.read<ProfileProvider>().clearAll();
+
+    // 2. Sign out from all auth providers
+    await GoogleSignIn().signOut();
     await FirebaseAuth.instance.signOut();
-    if (!context.mounted) return;
-    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const AuthWrapper()),
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } catch (_) {
+      // Supabase auth may not be active — safe to ignore
+    }
+
+    // 3. Navigate to the Get Started screen, removing all routes
+    navigator.pushAndRemoveUntil(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const loginPage(),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
       (route) => false,
     );
   }
