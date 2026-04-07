@@ -120,15 +120,18 @@ class EyeContactProvider extends ChangeNotifier {
         'aligned_frames': _alignedFrameCount,
       };
 
-      final sessionId = await _sessionService.saveSession(
+      final result = await _sessionService.saveSession(
         childId: childId,
         sessionType: 'eye_contact',
         score: scorePercent.clamp(0, 100).toDouble(),
         rawMetrics: rawMetrics,
       );
 
-      debugPrint('[EyeContact] Session saved: $sessionId');
-      _triggerAiSummary(sessionId);
+      if (result.wasDuplicate) {
+        debugPrint('[EyeContact] Duplicate — already recorded today');
+      }
+      debugPrint('[EyeContact] Session saved: ${result.sessionId}');
+      _triggerAiSummary(result.sessionId);
     } catch (e) {
       _saveError = 'Failed to save session: $e';
       debugPrint('[EyeContact] Save error: $e');

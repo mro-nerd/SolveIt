@@ -235,15 +235,18 @@ class EmotionAssessmentProvider extends ChangeNotifier {
         }).toList(),
       };
 
-      final sessionId = await _sessionService.saveSession(
+      final result = await _sessionService.saveSession(
         childId: childId,
         sessionType: 'emotion_assessment',
         score: score,
         rawMetrics: rawMetrics,
       );
 
-      debugPrint('[EmotionAssessment] Session saved: $sessionId');
-      _triggerAiSummary(sessionId);
+      if (result.wasDuplicate) {
+        debugPrint('[EmotionAssessment] Duplicate — already recorded today');
+      }
+      debugPrint('[EmotionAssessment] Session saved: ${result.sessionId}');
+      _triggerAiSummary(result.sessionId);
     } catch (e) {
       _saveError = 'Failed to save session: $e';
       debugPrint('[EmotionAssessment] Save error: $e');

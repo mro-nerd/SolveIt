@@ -6,6 +6,7 @@ import 'package:ace_mobile/features/imitation/imitation_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:ace_mobile/features/profile/profile_screen.dart';
 import 'package:ace_mobile/features/therapy/therapy_checklist_card.dart';
+import 'package:ace_mobile/features/progress/progress_provider.dart';
 import 'package:ace_mobile/shared/ProgressCard.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +24,25 @@ class _homeScreenState extends State<homeScreen> {
     if (h < 12) return 'Good Morning,';
     if (h < 17) return 'Good Afternoon,';
     return 'Good Evening,';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-load sessions so the ProgressGraphCard shows real data on launch
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSessions());
+  }
+
+  void _loadSessions() {
+    final profile = context.read<ProfileProvider>();
+    final childId = profile.currentChild?['id'] as String?;
+    final diagnosis =
+        profile.currentChild?['diagnosis_status'] as String? ?? 'pending';
+    if (childId != null && childId.isNotEmpty) {
+      context
+          .read<ProgressProvider>()
+          .loadSessions(childId, diagnosisStatus: diagnosis);
+    }
   }
 
   @override

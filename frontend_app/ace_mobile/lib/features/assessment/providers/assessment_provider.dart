@@ -161,17 +161,20 @@ class AssessmentProvider extends ChangeNotifier {
         'total_questions': questions.length,
       };
 
-      final sessionId = await _sessionService.saveSession(
+      final result = await _sessionService.saveSession(
         childId: childId ?? '',
         sessionType: 'mchat',
         score: score.toDouble(),
         rawMetrics: rawMetrics,
       );
 
-      debugPrint('[AssessmentProvider] Session saved: $sessionId');
+      if (result.wasDuplicate) {
+        debugPrint('[AssessmentProvider] Duplicate session — already recorded today');
+      }
+      debugPrint('[AssessmentProvider] Session saved: ${result.sessionId}');
 
       // Trigger AI summary (placeholder for Day 4)
-      _triggerAiSummary(sessionId);
+      _triggerAiSummary(result.sessionId);
 
       // Update diagnosis status based on risk
       if (childId != null && childId.isNotEmpty) {

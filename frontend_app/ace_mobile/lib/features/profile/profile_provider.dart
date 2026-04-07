@@ -77,10 +77,9 @@ class ProfileProvider extends ChangeNotifier {
     // Auto-sync on load to ensure Supabase has the latest data
     await syncToSupabase();
 
-    // If local child name is empty, try pulling from Supabase
-    if (childName.isEmpty) {
-      await _loadChildFromSupabase();
-    }
+    // Always reload children from Supabase so that _currentChild (including
+    // join_code, assigned_doctor_id, etc.) is fully hydrated on restart.
+    await _loadChildFromSupabase();
   }
 
   // ── Load profile from Supabase using Firebase UID ────────────────────────

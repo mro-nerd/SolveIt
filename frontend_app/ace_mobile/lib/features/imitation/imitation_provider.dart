@@ -228,15 +228,18 @@ class ImitationProvider extends ChangeNotifier {
         'poses_successful': score,
       };
 
-      final sessionId = await _sessionService.saveSession(
+      final result = await _sessionService.saveSession(
         childId: childId,
         sessionType: 'imitation',
         score: scorePercent.clamp(0, 100).toDouble(),
         rawMetrics: rawMetrics,
       );
 
-      debugPrint('[Imitation] Session saved: $sessionId');
-      _triggerAiSummary(sessionId);
+      if (result.wasDuplicate) {
+        debugPrint('[Imitation] Duplicate — already recorded today');
+      }
+      debugPrint('[Imitation] Session saved: ${result.sessionId}');
+      _triggerAiSummary(result.sessionId);
       _sessionSaved = true;
     } catch (e) {
       _saveError = 'Failed to save session: $e';
