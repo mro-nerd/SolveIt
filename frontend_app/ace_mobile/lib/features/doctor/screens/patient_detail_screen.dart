@@ -344,9 +344,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             ),
             const SizedBox(height: 24),
 
-            // ── Risk Trend Mini-Chart ──
-            if (_allSessions.isNotEmpty) _buildMiniChart(),
-            if (_allSessions.isNotEmpty) const SizedBox(height: 24),
+            // ── Progress Graph ──
+            _buildProgressGraph(),
+            const SizedBox(height: 24),
 
             // ── Active Therapy Plan Card ──
             _buildTherapyPlanCard(),
@@ -365,12 +365,12 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     );
   }
 
-  // ── Mini Chart ──
-  Widget _buildMiniChart() {
-    return GestureDetector(
-      onTap: _showLegendSheet,
-      child: Container(
-        padding: const EdgeInsets.all(16),
+  // ── Progress Graph ──
+  Widget _buildProgressGraph() {
+    // Check if we have enough data
+    if (_allSessions.length < 2) {
+      return Container(
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -383,122 +383,272 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(
-                  'Score Trends',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF111827),
-                  ),
-                ),
-                const Spacer(),
-                Icon(Icons.touch_app, size: 16, color: Colors.grey.shade400),
-                const SizedBox(width: 4),
-                Text(
-                  'Tap for legend',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    color: Colors.grey.shade400,
-                  ),
-                ),
-              ],
-            ),
+            Icon(Icons.show_chart_rounded, size: 48, color: Colors.grey.shade300),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 120,
-              child: LineChart(
-                LineChartData(
-                  gridData: const FlGridData(show: false),
-                  titlesData: const FlTitlesData(show: false),
-                  borderData: FlBorderData(show: false),
-                  minY: 0,
-                  maxY: 100,
-                  lineBarsData: _sessionsByType.entries.map((entry) {
-                    final type = entry.key;
-                    final sessions = entry.value.take(7).toList().reversed.toList();
-                    return LineChartBarData(
-                      spots: sessions.asMap().entries.map((e) {
-                        return FlSpot(
-                          e.key.toDouble(),
-                          (e.value['score'] as num? ?? 0).toDouble(),
-                        );
-                      }).toList(),
-                      isCurved: true,
-                      color: _colorForType(type),
-                      barWidth: 2.5,
-                      isStrokeCapRound: true,
-                      dotData: const FlDotData(show: false),
-                      belowBarData: BarAreaData(show: false),
-                    );
-                  }).toList(),
-                ),
+            Text(
+              'Not enough data for graph yet',
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade500,
               ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _allSessions.isEmpty
+                  ? 'Complete assessments to see progress'
+                  : 'At least 2 sessions are needed to plot trends',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey.shade400,
+              ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  void _showLegendSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    // Collect all unique dates across all session types for x-axis
+    final allDates = <DateTime>{};
+    for (final sessions in _sessionsByType.values) {
+      for (final s in sessions) {
+        final dateStr = s['completed_at'] as String?;
+        if (dateStr != null) {
+          try {
+            allDates.add(DateTime.parse(dateStr));
+          } catch (_) {}
+        }
+      }
+    }
+    final sortedDates = allDates.toList()..sort();
+    if (sortedDates.isEmpty) return const SizedBox.shrink();
+
+    // Map date to x-position index
+    final dateToX = <String, double>{};
+    for (int i = 0; i < sortedDates.length; i++) {
+      final key = DateFormat('yyyy-MM-dd').format(sortedDates[i]);
+      dateToX[key] = i.toDouble();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                'Chart Legend',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: appColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.trending_up_rounded,
+                  size: 20,
+                  color: appColors.primary,
                 ),
               ),
-              const SizedBox(height: 16),
-              ..._sessionsByType.keys.map((type) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 16,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: _colorForType(type),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        _formatTypeLabel(type),
-                        style: GoogleFonts.poppins(fontSize: 14),
-                      ),
-                      const Spacer(),
-                      Text(
-                        'Avg: ${_avgScoreForType(type).toStringAsFixed(1)}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
+              const SizedBox(width: 12),
+              Text(
+                'Progress Overview',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF111827),
+                ),
+              ),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 200,
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 25,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: Colors.grey.shade200,
+                    strokeWidth: 1,
+                    dashArray: [5, 5],
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 35,
+                      interval: 25,
+                      getTitlesWidget: (value, meta) {
+                        if (value == 0 || value == 25 || value == 50 ||
+                            value == 75 || value == 100) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: Text(
+                              value.toInt().toString(),
+                              style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 32,
+                      interval: 1,
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        if (idx < 0 || idx >= sortedDates.length) {
+                          return const SizedBox.shrink();
+                        }
+                        // Show at most ~5 labels to avoid overlap
+                        final step = (sortedDates.length / 5).ceil().clamp(1, sortedDates.length);
+                        if (idx % step != 0 && idx != sortedDates.length - 1) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            DateFormat('MMM d').format(sortedDates[idx]),
+                            style: GoogleFonts.poppins(
+                              fontSize: 9,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(show: false),
+                minY: 0,
+                maxY: 100,
+                minX: 0,
+                maxX: (sortedDates.length - 1).toDouble(),
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipItems: (spots) {
+                      return spots.map((spot) {
+                        final typeEntry = _sessionsByType.entries.elementAt(spot.barIndex);
+                        return LineTooltipItem(
+                          '${_formatTypeLabel(typeEntry.key)}: ${spot.y.toStringAsFixed(0)}',
+                          GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: _colorForType(typeEntry.key),
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
+                lineBarsData: _sessionsByType.entries.map((entry) {
+                  final type = entry.key;
+                  final sessions = entry.value.reversed.toList();
+                  final spots = <FlSpot>[];
+                  for (final s in sessions) {
+                    final dateStr = s['completed_at'] as String?;
+                    if (dateStr == null) continue;
+                    try {
+                      final key = DateFormat('yyyy-MM-dd').format(DateTime.parse(dateStr));
+                      final x = dateToX[key];
+                      if (x != null) {
+                        spots.add(FlSpot(x, (s['score'] as num? ?? 0).toDouble()));
+                      }
+                    } catch (_) {}
+                  }
+                  // Sort by x
+                  spots.sort((a, b) => a.x.compareTo(b.x));
+                  return LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    preventCurveOverShooting: true,
+                    color: _colorForType(type),
+                    barWidth: 2.5,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        return FlDotCirclePainter(
+                          radius: 3,
+                          color: Colors.white,
+                          strokeWidth: 2,
+                          strokeColor: _colorForType(type),
+                        );
+                      },
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: _colorForType(type).withValues(alpha: 0.06),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // ── Inline Legend ──
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: _sessionsByType.keys.map((type) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 14,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: _colorForType(type),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _formatTypeLabel(type),
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: const Color(0xFF6B7280),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '(${_avgScoreForType(type).toStringAsFixed(0)})',
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      color: Colors.grey.shade400,
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -559,6 +709,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     final level = _therapyPlan!['therapy_level'] ?? 'beginner';
     final notes = _therapyPlan!['notes'] as String?;
     final actions = _therapyPlan!['therapy_actions'] as List? ?? [];
+    final completedCount = actions.where((a) => a['is_completed'] == true).length;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -604,7 +755,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                       ),
                     ),
                     Text(
-                      '${actions.length} actions assigned',
+                      '$completedCount / ${actions.length} actions completed',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: const Color(0xFF9CA3AF),
@@ -651,6 +802,158 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
               ),
             ),
           ],
+
+          // ── Therapy Actions List ──
+          if (actions.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Actions',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF374151),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...actions.asMap().entries.map((entry) {
+              final action = Map<String, dynamic>.from(entry.value as Map);
+              final actionId = action['id'] as String?;
+              final title = action['title'] as String? ?? 'Untitled';
+              final description = action['description'] as String?;
+              final dueDate = action['due_date'] as String?;
+              final isCompleted = action['is_completed'] == true;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isCompleted
+                      ? const Color(0xFFF0FDF4)
+                      : const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isCompleted
+                        ? const Color(0xFF86EFAC)
+                        : Colors.grey.shade200,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // Checkbox
+                    GestureDetector(
+                      onTap: actionId == null
+                          ? null
+                          : () async {
+                              try {
+                                await _therapyService.toggleActionComplete(
+                                  actionId,
+                                  !isCompleted,
+                                );
+                                // Update local state for instant feedback
+                                setState(() {
+                                  final actionsList = _therapyPlan!['therapy_actions'] as List;
+                                  actionsList[entry.key]['is_completed'] = !isCompleted;
+                                  actionsList[entry.key]['completed_at'] = !isCompleted
+                                      ? DateTime.now().toUtc().toIso8601String()
+                                      : null;
+                                });
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Failed to update action',
+                                        style: GoogleFonts.poppins(color: Colors.white),
+                                      ),
+                                      backgroundColor: Colors.red,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: isCompleted ? appColors.primary : Colors.white,
+                          borderRadius: BorderRadius.circular(7),
+                          border: Border.all(
+                            color: isCompleted
+                                ? appColors.primary
+                                : Colors.grey.shade300,
+                            width: 2,
+                          ),
+                        ),
+                        child: isCompleted
+                            ? const Icon(Icons.check, size: 16, color: Colors.white)
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: isCompleted
+                                  ? Colors.grey.shade400
+                                  : const Color(0xFF111827),
+                              decoration: isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+                          if (description != null && description.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                description,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade500,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Due date badge
+                    if (dueDate != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _formatDate(dueDate),
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ],
+
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
