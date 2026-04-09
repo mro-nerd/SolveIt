@@ -217,4 +217,44 @@ class TherapyService {
           });
     });
   }
+
+  /// Returns a realtime stream of ALL therapy actions for a child
+  /// (not filtered by date). Used by the patient-side checklist so that
+  /// every action assigned by the doctor is visible.
+  Stream<List<Map<String, dynamic>>> streamAllActions(String childId) {
+    return Stream.fromFuture(
+      _db
+          .from('therapy_plans')
+          .select('id')
+          .inFilter('child_id', [childId])
+          .order('created_at', ascending: false),
+    ).asyncExpand((plans) {
+      if (plans.isEmpty) {
+        return Stream.value(<Map<String, dynamic>>[]);
+      }
+
+      // Use the most recent plan
+      final planId = plans.first['id'] as String;
+
+      return _db
+          .from('therapy_actions')
+          .stream(primaryKey: ['id'])
+          .eq('plan_id', planId)
+          .map((rows) {
+            // Sort: incomplete first, then by due_date ascending
+            final sorted = List<Map<String, dynamic>>.from(rows);
+            sorted.sort((a, b) {
+              // Incomplete items first
+              final aComplete = a['is_completed'] == true ? 1 : 0;
+              final bComplete = b['is_completed'] == true ? 1 : 0;
+              if (aComplete != bComplete) return aComplete.compareTo(bComplete);
+              // Then by due_date ascending
+              final aDate = a['due_date'] as String? ?? '';
+              final bDate = b['due_date'] as String? ?? '';
+              return aDate.compareTo(bDate);
+            });
+            return sorted;
+          });
+    });
+  }
 }

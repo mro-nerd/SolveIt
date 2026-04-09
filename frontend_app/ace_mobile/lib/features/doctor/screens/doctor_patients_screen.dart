@@ -309,8 +309,7 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
+        Navigator.of(context, rootNavigator: true).push(
           MaterialPageRoute(
             builder: (_) => PatientDetailScreen(
               patient: PatientData(

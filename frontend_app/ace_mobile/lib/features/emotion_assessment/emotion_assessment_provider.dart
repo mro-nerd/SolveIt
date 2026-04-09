@@ -40,6 +40,7 @@ class EmotionAssessmentProvider extends ChangeNotifier {
   // ── Session saving state ──
   bool _isSaving = false;
   String? _saveError;
+  bool _sessionSaved = false;
 
   // ── Getters ──
   AssessmentState get state => _state;
@@ -51,6 +52,7 @@ class EmotionAssessmentProvider extends ChangeNotifier {
   AssessmentSummary? get summary => _summary;
   bool get isSaving => _isSaving;
   String? get saveError => _saveError;
+  bool get sessionSaved => _sessionSaved;
 
   Stimulus get currentStimulus => kStimuliRounds[_currentRoundIndex];
 
@@ -215,6 +217,10 @@ class EmotionAssessmentProvider extends ChangeNotifier {
   /// [childId] — from ProfileProvider.currentChild['id'].
   Future<void> saveSessionForChild(String childId) async {
     if (_summary == null) return;
+    if (_sessionSaved || _isSaving) {
+      debugPrint('[EmotionAssessment] saveSessionForChild skipped — already saved or saving');
+      return;
+    }
 
     _isSaving = true;
     _saveError = null;
@@ -246,6 +252,7 @@ class EmotionAssessmentProvider extends ChangeNotifier {
         debugPrint('[EmotionAssessment] Duplicate — already recorded today');
       }
       debugPrint('[EmotionAssessment] Session saved: ${result.sessionId}');
+      _sessionSaved = true;
       _triggerAiSummary(result.sessionId);
     } catch (e) {
       _saveError = 'Failed to save session: $e';
@@ -274,6 +281,7 @@ class EmotionAssessmentProvider extends ChangeNotifier {
     _summary = null;
     _isSaving = false;
     _saveError = null;
+    _sessionSaved = false;
     notifyListeners();
   }
 }

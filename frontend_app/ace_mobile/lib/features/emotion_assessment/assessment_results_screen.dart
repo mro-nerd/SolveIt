@@ -21,6 +21,8 @@ class AssessmentResultsScreen extends StatefulWidget {
 }
 
 class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
+  bool _saveCalled = false;
+
   @override
   void initState() {
     super.initState();
@@ -28,6 +30,9 @@ class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
   }
 
   void _triggerSave() {
+    if (_saveCalled) return;
+    _saveCalled = true;
+
     final provider = context.read<EmotionAssessmentProvider>();
     final childId = context.read<ProfileProvider>().currentChild?['id'] as String? ?? '';
     debugPrint('[EmotionResultsScreen] Triggering save: childId=$childId');

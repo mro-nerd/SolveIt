@@ -16,6 +16,8 @@ class ResultScreen extends StatefulWidget {
 }
 
 class _ResultScreenState extends State<ResultScreen> {
+  bool _saveCalled = false;
+
   @override
   void initState() {
     super.initState();
@@ -24,6 +26,9 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   void _triggerSave() {
+    if (_saveCalled) return;
+    _saveCalled = true;
+
     final assessmentProvider = context.read<AssessmentProvider>();
     final profileProvider = context.read<ProfileProvider>();
     final childId = profileProvider.currentChild?['id'] as String? ?? '';

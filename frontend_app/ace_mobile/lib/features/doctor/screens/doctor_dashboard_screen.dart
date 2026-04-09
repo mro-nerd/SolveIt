@@ -488,8 +488,7 @@ class _RecentPatientCard extends StatelessWidget {
 
     return InkWell(
       onTap: () {
-        Navigator.push(
-          context,
+        Navigator.of(context, rootNavigator: true).push(
           MaterialPageRoute(
             builder: (_) => PatientDetailScreen(
               patient: PatientData(

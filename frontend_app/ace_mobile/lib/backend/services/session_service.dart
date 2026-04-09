@@ -9,9 +9,7 @@ class SessionService {
   /// Inserts a new session and returns the session id.
   /// Automatically computes and stores the `risk_flag`.
   ///
-  /// **Duplicate guard:** If a session with the same child_id, session_type,
-  /// and completed_at date (today) already exists, returns that session's id
-  /// instead of inserting a duplicate.
+  /// Each completed session always creates a new row — no duplicate guard.
   Future<SaveSessionResult> saveSession({
     required String childId,
     required String sessionType,
@@ -19,30 +17,6 @@ class SessionService {
     required Map<String, dynamic> rawMetrics,
   }) async {
     try {
-      // ── Check for duplicate session today ──
-      final todayStart = DateTime.now().toUtc();
-      final todayStr =
-          '${todayStart.year}-${todayStart.month.toString().padLeft(2, '0')}-${todayStart.day.toString().padLeft(2, '0')}';
-
-      final existing = await _db
-          .from('sessions')
-          .select('id')
-          .eq('child_id', childId)
-          .eq('session_type', sessionType)
-          .gte('completed_at', '${todayStr}T00:00:00')
-          .lt('completed_at', '${todayStr}T23:59:59.999999')
-          .maybeSingle();
-
-      if (existing != null) {
-        debugPrint(
-            '[SessionService] Duplicate session found for $sessionType today');
-        return SaveSessionResult(
-          sessionId: existing['id'] as String,
-          wasDuplicate: true,
-        );
-      }
-
-      // ── Insert new session ──
       final riskFlag = _computeRiskFlag(sessionType, score);
 
       final response = await _db

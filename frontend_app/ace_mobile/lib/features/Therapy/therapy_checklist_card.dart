@@ -29,7 +29,7 @@ class _TherapyChecklistCardState extends State<TherapyChecklistCard> {
   void initState() {
     super.initState();
     // Create the stream once — not on every build — to avoid resubscribing.
-    _stream = _therapyService.streamTodaysActions(widget.childId);
+    _stream = _therapyService.streamAllActions(widget.childId);
   }
 
   /// Returns the effective completion state, applying any optimistic override.
@@ -134,7 +134,7 @@ class _TherapyChecklistCardState extends State<TherapyChecklistCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          "Today's Goals",
+                          "Therapy Goals",
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -357,7 +357,7 @@ class _TherapyChecklistCardState extends State<TherapyChecklistCard> {
           TextButton(
             onPressed: () {
               setState(() {
-                _stream = _therapyService.streamTodaysActions(widget.childId);
+                _stream = _therapyService.streamAllActions(widget.childId);
               });
             },
             child: const Text('Retry', style: TextStyle(fontSize: 13)),
