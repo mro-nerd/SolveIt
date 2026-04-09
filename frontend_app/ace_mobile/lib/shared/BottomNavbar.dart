@@ -16,12 +16,21 @@ class CustomBottomNavBar extends StatefulWidget {
 
 class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
   late PersistentTabController _controller;
+  int _currentIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _controller = PersistentTabController(initialIndex: 0);
+    _controller.addListener(() {
+      if (_controller.index != _currentIndex) {
+        setState(() => _currentIndex = _controller.index);
+      }
+    });
   }
+
+  /// Chat FAB is shown ONLY on the Home tab (index 0).
+  bool get _shouldShowChatFab => _currentIndex == 0;
 
   List<Widget> _buildScreens() {
     return const [
@@ -65,22 +74,29 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      //app copilot
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 60),
-        child: FloatingActionButton(
-          elevation: 5,
-          backgroundColor: appColors.primary,
-          foregroundColor: Colors.white,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => AIChatScreen()),
-            );
-          },
-          child: const Icon(Icons.chat_bubble_outlined),
-        ),
-      ),
+      // Chat FAB — only on Home tab, hidden when keyboard is open
+      floatingActionButton: _shouldShowChatFab
+          ? Builder(builder: (context) {
+              final isKeyboardOpen =
+                  MediaQuery.of(context).viewInsets.bottom > 0;
+              if (isKeyboardOpen) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 60),
+                child: FloatingActionButton(
+                  elevation: 5,
+                  backgroundColor: appColors.primary,
+                  foregroundColor: Colors.white,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => AIChatScreen()),
+                    );
+                  },
+                  child: const Icon(Icons.chat_bubble_outlined),
+                ),
+              );
+            })
+          : null,
       body: PersistentTabView(
         context,
         controller: _controller,

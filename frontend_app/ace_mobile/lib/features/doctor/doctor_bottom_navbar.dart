@@ -10,17 +10,31 @@ class DoctorBottomNavBar extends StatefulWidget {
   const DoctorBottomNavBar({super.key});
 
   @override
-  State<DoctorBottomNavBar> createState() => _DoctorBottomNavBarState();
+  State<DoctorBottomNavBar> createState() => DoctorBottomNavBarState();
 }
 
-class _DoctorBottomNavBarState extends State<DoctorBottomNavBar> {
+class DoctorBottomNavBarState extends State<DoctorBottomNavBar> {
   late PersistentTabController _controller;
+  int _currentIndex = 0;
+
+  /// Programmatically switch to a specific tab index.
+  void switchToTab(int index) {
+    _controller.jumpToTab(index);
+  }
 
   @override
   void initState() {
     super.initState();
     _controller = PersistentTabController(initialIndex: 0);
+    _controller.addListener(() {
+      if (_controller.index != _currentIndex) {
+        setState(() => _currentIndex = _controller.index);
+      }
+    });
   }
+
+  /// Chat FAB is shown on Dashboard (0) and Patients (1) tabs only.
+  bool get _shouldShowChatFab => _currentIndex == 0 || _currentIndex == 1;
 
   List<Widget> _buildScreens() {
     return const [
@@ -56,21 +70,29 @@ class _DoctorBottomNavBarState extends State<DoctorBottomNavBar> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 60),
-        child: FloatingActionButton(
-          elevation: 5,
-          backgroundColor: appColors.primary,
-          foregroundColor: Colors.white,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => AIChatScreen()),
-            );
-          },
-          child: const Icon(Icons.chat_bubble_outlined),
-        ),
-      ),
+      // Chat FAB — only on Dashboard and Patients tabs, hidden when keyboard open
+      floatingActionButton: _shouldShowChatFab
+          ? Builder(builder: (context) {
+              final isKeyboardOpen =
+                  MediaQuery.of(context).viewInsets.bottom > 0;
+              if (isKeyboardOpen) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 60),
+                child: FloatingActionButton(
+                  elevation: 5,
+                  backgroundColor: appColors.primary,
+                  foregroundColor: Colors.white,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => AIChatScreen()),
+                    );
+                  },
+                  child: const Icon(Icons.chat_bubble_outlined),
+                ),
+              );
+            })
+          : null,
       body: PersistentTabView(
         context,
         controller: _controller,

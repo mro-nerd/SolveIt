@@ -1,5 +1,6 @@
 import 'package:ace_mobile/backend/backend.dart';
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/doctor/doctor_bottom_navbar.dart';
 import 'package:ace_mobile/features/doctor/doctor_dashboard_provider.dart';
 import 'package:ace_mobile/features/doctor/screens/patient_detail_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
@@ -34,9 +35,18 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final profile = context.read<ProfileProvider>().currentProfile;
       if (profile != null && profile['id'] != null) {
-        context.read<DoctorDashboardProvider>().loadPatients(profile['id']);
+        final provider = context.read<DoctorDashboardProvider>();
+        provider.loadPatients(profile['id']);
+        provider.startListening();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    // Provider is scoped to this widget tree via ChangeNotifierProvider,
+    // so its own dispose() handles stream cleanup.
+    super.dispose();
   }
 
   void _showAddPatientBottomSheet() {
@@ -65,6 +75,12 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
     );
   }
 
+  /// Navigate to the Patients tab (index 1) in the parent DoctorBottomNavBar.
+  void _navigateToPatientsTab() {
+    final navState = context.findAncestorStateOfType<DoctorBottomNavBarState>();
+    navState?.switchToTab(1);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -72,40 +88,12 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'My Patients',
-              style: GoogleFonts.poppins(
-                color: Colors.black,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Consumer<DoctorDashboardProvider>(
-              builder: (context, provider, _) {
-                if (provider.highRiskCount > 0) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${provider.highRiskCount}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          ],
+        title: Text(
+          'Dashboard',
+          style: GoogleFonts.poppins(
+            color: Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         actions: [
           IconButton(
@@ -131,7 +119,7 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Summary Row
+                    // ── Summary Stat Cards ────────────────────────────────
                     Row(
                       children: [
                         _SummaryChip(
@@ -141,19 +129,19 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
                         ),
                         const SizedBox(width: 8),
                         _SummaryChip(
-                          title: 'High Risk',
-                          value: '${provider.highRiskCount}',
-                          color: Colors.red,
+                          title: 'Sessions Today',
+                          value: '${provider.sessionsToday}',
+                          color: Colors.green,
                         ),
                         const SizedBox(width: 8),
                         _SummaryChip(
-                          title: 'Avg Score',
-                          value: provider.avgLastScore.toStringAsFixed(1),
-                          color: Colors.purple,
+                          title: 'High Risk',
+                          value: '${provider.highRiskThisWeek}',
+                          color: Colors.red,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
 
                     if (provider.isLoading)
                       const _LoadingSkeletons()
@@ -189,28 +177,55 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
                           ),
                         ),
                       )
-                    else
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: provider.patients.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final patient = provider.patients[index];
-                          return _PatientCard(patient: patient);
-                        },
+                    else ...[
+                      // ── Recent Patients section ────────────────────────
+                      Text(
+                        'Recent Patients',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF111827),
+                        ),
                       ),
+                      const SizedBox(height: 12),
+                      ...provider.recentPatients.map(
+                        (patient) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _RecentPatientCard(patient: patient),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // ── View All Patients → ────────────────────────────
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _navigateToPatientsTab,
+                          icon: const Icon(Icons.people_rounded),
+                          label: Text(
+                            'View All Patients →',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: appColors.primary,
+                            side: BorderSide(color: appColors.primary),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                   ],
                 ),
               ),
             ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddPatientBottomSheet,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Patient'),
       ),
     );
   }
@@ -282,186 +297,6 @@ class _LoadingSkeletons extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PatientCard extends StatelessWidget {
-  final Map<String, dynamic> patient;
-
-  const _PatientCard({required this.patient});
-
-  int _calculateAge(String? dobString) {
-    if (dobString == null || dobString.isEmpty) return 0;
-    try {
-      final dob = DateTime.parse(dobString);
-      final now = DateTime.now();
-      int age = now.year - dob.year;
-      if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
-        age--;
-      }
-      return age;
-    } catch (_) {
-      return 0;
-    }
-  }
-
-  String _formatDaysAgo(String? dateString) {
-    if (dateString == null) return '';
-    try {
-      final date = DateTime.parse(dateString);
-      final diff = DateTime.now().difference(date).inDays;
-      if (diff == 0) return 'Today';
-      if (diff == 1) return 'Yesterday';
-      return '$diff days ago';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  Color _getStatusColor(String? status) {
-    switch (status) {
-      case 'high': return Colors.red;
-      case 'medium': return Colors.amber;
-      case 'low': return Colors.green;
-      default: return Colors.grey;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final name = patient['child_name'] ?? 'Unknown';
-    final age = _calculateAge(patient['date_of_birth']);
-    final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    final status = patient['diagnosis_status'] ?? 'pending';
-    final session = patient['latest_session'];
-
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => PatientDetailScreen(
-              patient: PatientData(
-                name: name,
-                age: age,
-                diagnosis: status,
-                lastVisit: session != null ? _formatDaysAgo(session['completed_at']) : 'None',
-                status: 'Active',
-                since: 'Recently',
-                childId: patient['id'] as String?,
-              ),
-            ),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: _getStatusColor(status).withValues(alpha: 0.1),
-              child: Text(
-                initials,
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.bold,
-                  color: _getStatusColor(status),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        name,
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$age yrs',
-                        style: GoogleFonts.poppins(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(status).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          status.toUpperCase(),
-                          style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: _getStatusColor(status),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (session != null)
-                    Row(
-                      children: [
-                        Icon(Icons.assessment_outlined, size: 14, color: Colors.indigo.shade300),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${session['session_type']} • ${(session['score'] as num?)?.toStringAsFixed(0) ?? '?'} pts',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.indigo.shade700,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          _formatDaysAgo(session['completed_at']),
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    )
-                  else
-                    Text(
-                      'No assessments yet',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: Colors.grey),
-          ],
         ),
       ),
     );
@@ -583,5 +418,164 @@ class _AddPatientSheetState extends State<_AddPatientSheet> {
   void dispose() {
     _codeController.dispose();
     super.dispose();
+  }
+}
+
+// ── Recent Patient Card ─────────────────────────────────────────────────────
+
+class _RecentPatientCard extends StatelessWidget {
+  final Map<String, dynamic> patient;
+  const _RecentPatientCard({required this.patient});
+
+  String _formatDaysAgo(String? dateString) {
+    if (dateString == null) return '';
+    try {
+      final date = DateTime.parse(dateString);
+      final diff = DateTime.now().difference(date).inDays;
+      if (diff == 0) return 'Today';
+      if (diff == 1) return 'Yesterday';
+      return '$diff days ago';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  int _calculateAge(String? dobString) {
+    if (dobString == null || dobString.isEmpty) return 0;
+    try {
+      final dob = DateTime.parse(dobString);
+      final now = DateTime.now();
+      int age = now.year - dob.year;
+      if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
+        age--;
+      }
+      return age;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status) {
+      case 'high': return Colors.red;
+      case 'medium': return Colors.amber;
+      case 'low': return Colors.green;
+      default: return Colors.grey;
+    }
+  }
+
+  String _formatSessionType(String? type) {
+    if (type == null) return '';
+    switch (type) {
+      case 'mchat': return 'M-CHAT';
+      case 'emotion_assessment': return 'Emotion';
+      case 'eye_contact': return 'Eye Contact';
+      case 'imitation': return 'Imitation';
+      default:
+        return type.split('_').map((w) => w.isNotEmpty ? w[0].toUpperCase() + w.substring(1) : '').join(' ');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = patient['child_name'] ?? 'Unknown';
+    final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final status = patient['diagnosis_status'] ?? 'pending';
+    final session = patient['latest_session'];
+    final sessionType = session?['session_type'] as String?;
+    final sessionDate = session?['completed_at'] as String?;
+    final age = _calculateAge(patient['date_of_birth']);
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PatientDetailScreen(
+              patient: PatientData(
+                name: name,
+                age: age,
+                diagnosis: status,
+                lastVisit: session != null ? _formatDaysAgo(session['completed_at']) : 'None',
+                status: 'Active',
+                since: 'Recently',
+                childId: patient['id'] as String?,
+              ),
+            ),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: _getStatusColor(status).withValues(alpha: 0.1),
+              child: Text(
+                initials,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  color: _getStatusColor(status),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      if (sessionType != null) ...[
+                        Icon(Icons.assessment_outlined, size: 13, color: Colors.indigo.shade300),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatSessionType(sessionType),
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.indigo.shade700,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      if (sessionDate != null)
+                        Text(
+                          _formatDaysAgo(sessionDate),
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+          ],
+        ),
+      ),
+    );
   }
 }

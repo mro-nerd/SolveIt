@@ -21,6 +21,10 @@ class _TherapyChecklistCardState extends State<TherapyChecklistCard> {
   final TherapyService _therapyService = TherapyService();
   late Stream<List<Map<String, dynamic>>> _stream;
 
+  /// Optimistic overrides: actionId -> desired is_completed value.
+  /// Cleared when the stream delivers the real state.
+  final Map<String, bool> _optimisticOverrides = {};
+
   @override
   void initState() {
     super.initState();
@@ -28,13 +32,26 @@ class _TherapyChecklistCardState extends State<TherapyChecklistCard> {
     _stream = _therapyService.streamTodaysActions(widget.childId);
   }
 
+  /// Returns the effective completion state, applying any optimistic override.
+  bool _isCompleted(Map<String, dynamic> action) {
+    final id = action['id'] as String;
+    return _optimisticOverrides[id] ?? (action['is_completed'] == true);
+  }
+
   Future<void> _toggle(String actionId, bool current) async {
+    final newValue = !current;
+
+    // 1. Optimistic: update UI immediately
+    setState(() => _optimisticOverrides[actionId] = newValue);
+
     try {
-      await _therapyService.toggleActionComplete(actionId, !current);
+      await _therapyService.toggleActionComplete(actionId, newValue);
+      // Clear override — the stream will deliver the real state
       if (mounted) {
+        setState(() => _optimisticOverrides.remove(actionId));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(!current ? 'Goal marked complete! 🎉' : 'Goal unmarked'),
+            content: Text(newValue ? 'Goal marked complete! 🎉' : 'Goal unmarked'),
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -42,7 +59,9 @@ class _TherapyChecklistCardState extends State<TherapyChecklistCard> {
         );
       }
     } catch (e) {
+      // 2. Rollback on failure
       if (mounted) {
+        setState(() => _optimisticOverrides.remove(actionId));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Failed to update. Try again.'),
@@ -77,7 +96,7 @@ class _TherapyChecklistCardState extends State<TherapyChecklistCard> {
           return _buildEmpty();
         }
 
-        final completed = actions.where((a) => a['is_completed'] == true).length;
+        final completed = actions.where((a) => _isCompleted(a)).length;
         final total = actions.length;
         final progress = total > 0 ? completed / total : 0.0;
 
@@ -180,7 +199,7 @@ class _TherapyChecklistCardState extends State<TherapyChecklistCard> {
                 final id = action['id'] as String;
                 final title = action['title'] as String? ?? '';
                 final description = action['description'] as String?;
-                final isDone = action['is_completed'] == true;
+                final isDone = _isCompleted(action);
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),

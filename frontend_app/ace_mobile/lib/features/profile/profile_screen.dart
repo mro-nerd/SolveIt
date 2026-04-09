@@ -1,6 +1,5 @@
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/auth/loginPage.dart';
-import 'package:ace_mobile/features/auth/role_selection_screen.dart';
 import 'package:ace_mobile/features/profile/add_child_screen.dart';
 import 'package:ace_mobile/features/profile/join_code_card.dart';
 import 'package:ace_mobile/features/profile/privacy_screen.dart';
@@ -112,20 +111,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  // ── Switch role ────────────────────────────────────────────────────────────
-  void _switchRole() {
-    final profile = context.read<ProfileProvider>();
-    profile.updateUserRole('');
-    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const RoleSelectionScreen(),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-        transitionDuration: const Duration(milliseconds: 400),
-      ),
-      (route) => false,
-    );
-  }
 
   // ── Sign out ──────────────────────────────────────────────────────────────
   Future<void> _signOut() async {
@@ -575,13 +560,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     : null;
                               }
                             },
-                          ),
-                          _divider(),
-                          _OptionTile(
-                            icon: Icons.swap_horiz_rounded,
-                            label: 'Sign in as Doctor',
-                            color: const Color(0xFF7C3AED),
-                            onTap: () => _switchRole(),
                           ),
                           _divider(),
                           _OptionTile(

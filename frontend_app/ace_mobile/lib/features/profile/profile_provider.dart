@@ -162,10 +162,27 @@ class ProfileProvider extends ChangeNotifier {
   }
 
   /// Switch the active child (used when parent has multiple children).
+  /// Immediately updates UI — zero network calls. Sessions refresh in background.
   void switchChild(Map<String, dynamic> child) {
     _currentChild = child;
     _hydrateLocalFromChild(child);
     notifyListeners();
+    // Refresh sessions silently in background
+    _refreshSessionsForChild(child['id'] as String);
+  }
+
+  /// Sessions for the current child — updated in background after switchChild.
+  List<Map<String, dynamic>> _currentChildSessions = [];
+  List<Map<String, dynamic>> get currentChildSessions => _currentChildSessions;
+
+  Future<void> _refreshSessionsForChild(String childId) async {
+    try {
+      final sessions = await SessionService().getSessionsForChild(childId);
+      _currentChildSessions = sessions;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ProfileProvider] Background session refresh failed: $e');
+    }
   }
 
   /// Add a brand-new child via the "Add Child" flow.
