@@ -5,13 +5,11 @@ import 'package:ace_mobile/features/profile/add_child_screen.dart';
 import 'package:ace_mobile/features/profile/join_code_card.dart';
 import 'package:ace_mobile/features/profile/privacy_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:ace_mobile/backend/backend.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -172,14 +170,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     // 1. Clear all cached profile / SharedPreferences state
     if (mounted) await context.read<ProfileProvider>().clearAll();
 
-    // 2. Sign out from all auth providers
-    await GoogleSignIn().signOut();
-    await FirebaseAuth.instance.signOut();
-    try {
-      await Supabase.instance.client.auth.signOut();
-    } catch (_) {
-      // Supabase auth may not be active — safe to ignore
-    }
+    // 2. Sign out from Supabase
+    await AuthService().signOut();
 
     // 3. Navigate to the Get Started screen, removing all routes
     navigator.pushAndRemoveUntil(
@@ -196,7 +188,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   Widget build(BuildContext context) {
     final profile = context.watch<ProfileProvider>();
-    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final supabaseUser = SupabaseClientManager.currentUser;
 
     return Scaffold(
       backgroundColor: appColors.background,
@@ -280,9 +272,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                               child: CircleAvatar(
                                 radius: 52,
                                 backgroundImage:
-                                    firebaseUser?.photoURL != null &&
+                                    supabaseUser?.userMetadata?['avatar_url'] != null &&
                                         (profile.photoPath == null)
-                                    ? NetworkImage(firebaseUser!.photoURL!)
+                                    ? NetworkImage(supabaseUser!.userMetadata!['avatar_url'])
                                           as ImageProvider
                                     : profile.avatarImage,
                               ),
@@ -324,7 +316,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         Text(
                           profile.parentEmail.isNotEmpty
                               ? profile.parentEmail
-                              : (firebaseUser?.email ?? ''),
+                              : (supabaseUser?.email ?? ''),
                           style: GoogleFonts.poppins(
                             color: Colors.white.withValues(alpha: 0.75),
                             fontSize: 13,

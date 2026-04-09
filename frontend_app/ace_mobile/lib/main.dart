@@ -10,7 +10,6 @@ import 'package:ace_mobile/features/imitation/imitation_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
 import 'package:ace_mobile/features/progress/progress_provider.dart';
 import 'package:ace_mobile/features/splash/splash_screen.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -18,18 +17,12 @@ import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Lock to portrait
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-
-  await Firebase.initializeApp();
   await dotenv.load(fileName: ".env");
-
   await SupabaseClientManager.initialize();
-
   runApp(const MyApp());
 }
 

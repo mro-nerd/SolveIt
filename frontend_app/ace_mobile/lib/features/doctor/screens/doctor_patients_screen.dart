@@ -2,7 +2,7 @@ import 'package:ace_mobile/backend/backend.dart';
 import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/doctor/screens/patient_detail_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -18,7 +18,6 @@ class DoctorPatientsScreen extends StatefulWidget {
 class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ChildService _childService = ChildService();
-  final ProfileService _profileService = ProfileService();
 
   String _searchQuery = '';
   String _selectedFilter = 'All';
@@ -40,9 +39,8 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
     });
 
     try {
-      // 1. Get Firebase UID
-      final firebaseUser = FirebaseAuth.instance.currentUser;
-      if (firebaseUser == null) {
+      // 1. Check Supabase auth
+      if (!SupabaseClientManager.isLoggedIn) {
         setState(() {
           _isLoading = false;
           _error = 'Not signed in';
@@ -50,14 +48,12 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
         return;
       }
 
-      // 2. Fetch Supabase profile to get uuid
+      // 2. Get doctor profile id from provider or Supabase auth
       String? doctorId =
           context.read<ProfileProvider>().currentProfile?['id'] as String?;
 
       if (doctorId == null) {
-        final profile =
-            await _profileService.getProfile(firebaseUser.uid);
-        doctorId = profile?['id'] as String?;
+        doctorId = SupabaseClientManager.currentUser?.id;
       }
 
       if (doctorId == null) {

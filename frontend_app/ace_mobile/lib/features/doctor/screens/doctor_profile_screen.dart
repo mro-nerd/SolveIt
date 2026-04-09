@@ -3,12 +3,11 @@ import 'package:ace_mobile/core/constants.dart';
 import 'package:ace_mobile/features/auth/loginPage.dart';
 import 'package:ace_mobile/features/auth/role_selection_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DoctorProfileScreen extends StatefulWidget {
   const DoctorProfileScreen({super.key});
@@ -18,7 +17,6 @@ class DoctorProfileScreen extends StatefulWidget {
 }
 
 class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
-  final ProfileService _profileService = ProfileService();
 
   // ── Profile data from Supabase ──
   Map<String, dynamic>? _profile;
@@ -44,7 +42,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = SupabaseClientManager.currentUser?.id;
     if (uid == null) return;
 
     setState(() {
@@ -53,7 +51,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
     });
 
     try {
-      final profile = await _profileService.getProfile(uid);
+      final profile = await AuthService().fetchCurrentProfile();
       if (mounted) {
         setState(() {
           _profile = profile;
@@ -78,15 +76,13 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = SupabaseClientManager.currentUser?.id;
       if (uid == null) throw Exception('Not signed in');
 
-      await _profileService.upsertProfile(
-        firebaseUid: uid,
-        role: _profile?['role'] ?? 'doctor',
-        displayName: newName,
-        email: _profile?['email'] ?? '',
-      );
+      await SupabaseClientManager.client
+          .from('profiles')
+          .update({'display_name': newName})
+          .eq('id', uid);
 
       if (mounted) {
         setState(() {
@@ -548,14 +544,8 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
     // 1. Clear all cached profile / SharedPreferences state
     await context.read<ProfileProvider>().clearAll();
 
-    // 2. Sign out from all auth providers
-    await GoogleSignIn().signOut();
-    await FirebaseAuth.instance.signOut();
-    try {
-      await Supabase.instance.client.auth.signOut();
-    } catch (_) {
-      // Supabase auth may not be active — safe to ignore
-    }
+    // 2. Sign out from Supabase
+    await AuthService().signOut();
 
     // 3. Navigate to the Get Started screen, removing all routes
     navigator.pushAndRemoveUntil(

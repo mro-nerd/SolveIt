@@ -1,19 +1,18 @@
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ace_mobile/backend/backend.dart';
 
 class ProfileProvider extends ChangeNotifier {
   // ── New domain services (injected or defaulted) ──────────────────────────
-  final ProfileService _profileService;
   final ChildService _childService;
+  final AuthService _authService;
 
   ProfileProvider({
-    ProfileService? profileService,
     ChildService? childService,
-  })  : _profileService = profileService ?? ProfileService(),
-        _childService = childService ?? ChildService();
+    AuthService? authService,
+  })  : _childService = childService ?? ChildService(),
+        _authService = authService ?? AuthService();
 
   // ── Keys ──────────────────────────────────────────────────────────────────
   static const _kParentName = 'profile_parent_name';
@@ -48,6 +47,9 @@ class ProfileProvider extends ChangeNotifier {
   bool _loaded = false;
   bool get isLoaded => _loaded;
 
+  /// Expose the AuthService so screens can call signIn / signUp / signOut.
+  AuthService get authService => _authService;
+
   /// Role resolved from Supabase profile, falling back to local prefs.
   String get currentRole {
     if (_profile != null && _profile!['role'] != null) {
@@ -74,52 +76,19 @@ class ProfileProvider extends ChangeNotifier {
     _loaded = true;
     notifyListeners();
 
-    // Auto-sync on load to ensure Supabase has the latest data
-    await syncToSupabase();
-
-    // Always reload children from Supabase so that _currentChild (including
-    // join_code, assigned_doctor_id, etc.) is fully hydrated on restart.
-    await _loadChildFromSupabase();
-  }
-
-  // ── Load profile from Supabase using Firebase UID ────────────────────────
-  /// Call this after Firebase sign-in to hydrate the provider with
-  /// the Supabase profile + children data.
-  Future<void> loadProfile(String firebaseUid) async {
-    try {
-      _profile = await _profileService.getProfile(firebaseUid);
-
-      if (_profile != null) {
-        // Sync role from Supabase → local
-        userRole = _profile!['role'] as String? ?? 'parent';
-        await _save(_kUserRole, userRole);
-
-        // Sync display name → local
-        final dn = _profile!['display_name'] as String? ?? '';
-        if (dn.isNotEmpty) {
-          parentName = dn;
-          await _save(_kParentName, parentName);
-        }
-
-        // Load first child for this parent
-        await _loadChildFromSupabase();
-      }
-      notifyListeners();
-    } catch (e) {
-      debugPrint('[ProfileProvider] loadProfile error: $e');
+    // If user is logged in via Supabase, hydrate from remote
+    if (SupabaseClientManager.isLoggedIn) {
+      await initializeFromSupabase();
     }
   }
 
-  /// Whether a Supabase profile has been fetched/created.
-  bool get profileExists => _profile != null;
-
-  /// Called by AuthWrapper after Firebase sign-in.
-  /// Fetches the existing Supabase profile; if none exists,
-  /// [profileExists] will be false → AuthWrapper sends user
-  /// to the role-selection screen.
-  Future<void> initializeFromFirebase(User firebaseUser) async {
+  // ── Initialize profile from Supabase Auth ───────────────────────────────
+  /// Called after Supabase session is confirmed (login or cold start).
+  /// Fetches the Supabase profile; if none exists, [profileExists] will
+  /// be false → AuthWrapper sends user to the role-selection screen.
+  Future<void> initializeFromSupabase() async {
     try {
-      _profile = await _profileService.getProfile(firebaseUser.uid);
+      _profile = await _authService.fetchCurrentProfile();
 
       if (_profile != null) {
         // Existing user — hydrate local state from Supabase
@@ -145,12 +114,15 @@ class ProfileProvider extends ChangeNotifier {
       _loaded = true;
       notifyListeners();
     } catch (e) {
-      debugPrint('[ProfileProvider] initializeFromFirebase error: $e');
+      debugPrint('[ProfileProvider] initializeFromSupabase error: $e');
       // Fallback: mark loaded so the app doesn't get stuck
       _loaded = true;
       notifyListeners();
     }
   }
+
+  /// Whether a Supabase profile has been fetched/created.
+  bool get profileExists => _profile != null;
 
   /// Pulls all children from Supabase for the current profile
   /// and sets the first one (or previously selected one) as active.
@@ -219,16 +191,17 @@ class ProfileProvider extends ChangeNotifier {
   // ── Supabase Sync ────────────────────────────────────────────────────────
   Future<void> syncToSupabase() async {
     try {
-      if (parentName.isNotEmpty && parentEmail.isNotEmpty) {
-        final firebaseUid =
-            _profile?['firebase_uid'] as String? ?? '';
-        if (firebaseUid.isNotEmpty) {
-          await _profileService.upsertProfile(
-            firebaseUid: firebaseUid,
-            role: currentRole,
-            displayName: parentName,
-            email: parentEmail,
-          );
+      if (parentName.isNotEmpty && parentEmail.isNotEmpty && _profile != null) {
+        final profileId = _profile!['id'] as String?;
+        if (profileId != null) {
+          await SupabaseClientManager.client
+              .from('profiles')
+              .update({
+                'display_name': parentName,
+                'email': parentEmail,
+                'role': currentRole,
+              })
+              .eq('id', profileId);
         }
       }
 

@@ -1,18 +1,19 @@
 import 'package:ace_mobile/backend/supabase_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class SupabaseService {
   SupabaseClient get _db => SupabaseClientManager.client;
-  String? get _firebaseUid => FirebaseAuth.instance.currentUser?.uid;
+  String? get _userId => SupabaseClientManager.currentUser?.id;
 
   Future<void> upsertProfile(String parentName, String email) async {
     try {
+      final uid = _userId;
+      if (uid == null) return;
       await _db.from('profiles').upsert({
-        'firebase_uid': _firebaseUid,
-        'parent_name': parentName,
+        'id': uid,
+        'display_name': parentName,
         'email': email,
-      }, onConflict: 'firebase_uid');
+      }, onConflict: 'id');
     } catch (e) {
       print('Error in upsertProfile: $e');
     }
@@ -20,12 +21,9 @@ class SupabaseService {
 
   Future<String?> getProfileId() async {
     try {
-      final response = await _db
-          .from('profiles')
-          .select('id')
-          .eq('firebase_uid', _firebaseUid!)
-          .maybeSingle();
-      return response?['id'] as String?;
+      final uid = _userId;
+      if (uid == null) return null;
+      return uid;
     } catch (e) {
       print('Error in getProfileId: $e');
       return null;

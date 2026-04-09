@@ -1,6 +1,5 @@
 import 'package:ace_mobile/backend/backend.dart';
 import 'package:ace_mobile/core/constants.dart';
-import 'package:ace_mobile/features/auth/signInService.dart';
 import 'package:ace_mobile/features/doctor/doctor_bottom_navbar.dart';
 import 'package:ace_mobile/features/onboarding/onboarding_screen.dart';
 import 'package:ace_mobile/features/profile/profile_provider.dart';
@@ -24,7 +23,10 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
   String? _selectedRole;
   bool _isSaving = false;
 
-  final GoogleAuthService _googleAuthService = GoogleAuthService();
+  // ── Form controllers for sign-up ──
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -44,57 +46,231 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
   @override
   void dispose() {
     _controller.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    _nameCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _selectRole(String role) async {
-    setState(() {
-      _selectedRole = role;
-      _isSaving = true;
-    });
+    setState(() => _selectedRole = role);
 
-    // ── 1. Trigger Google Sign-In ──
-    final firebaseUser = await _googleAuthService.signInWithGoogle();
-
-    if (firebaseUser == null) {
-      // User cancelled sign-in
-      if (mounted) {
-        setState(() {
-          _selectedRole = null;
-          _isSaving = false;
-        });
-      }
+    // Show sign-up / sign-in bottom sheet
+    final result = await _showAuthSheet(role);
+    if (result != true) {
+      // User cancelled
+      if (mounted) setState(() => _selectedRole = null);
       return;
     }
+  }
 
-    // ── 2. Save role to profile ──
+  /// Bottom-sheet that collects email, password, name & signs up / signs in.
+  Future<bool?> _showAuthSheet(String role) {
+    // Reset controllers
+    _emailCtrl.clear();
+    _passwordCtrl.clear();
+    _nameCtrl.clear();
+
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        bool isLogin = false;
+        bool isWorking = false;
+        String? error;
+
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 28,
+                right: 28,
+                top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 28,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Drag handle
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      isLogin ? 'Welcome Back' : 'Create Account',
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF111827),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      isLogin
+                          ? 'Sign in to continue as ${role == 'doctor' ? 'a Doctor' : 'a Parent'}'
+                          : 'Sign up as ${role == 'doctor' ? 'a Doctor' : 'a Parent'}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Name field (sign-up only)
+                    if (!isLogin) ...[
+                      _AuthTextField(
+                        controller: _nameCtrl,
+                        label: 'Full Name',
+                        icon: Icons.person_rounded,
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+
+                    _AuthTextField(
+                      controller: _emailCtrl,
+                      label: 'Email',
+                      icon: Icons.email_rounded,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 14),
+                    _AuthTextField(
+                      controller: _passwordCtrl,
+                      label: 'Password',
+                      icon: Icons.lock_rounded,
+                      obscure: true,
+                    ),
+                    const SizedBox(height: 8),
+
+                    if (error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          error!,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 16),
+
+                    // Submit button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: isWorking
+                            ? null
+                            : () async {
+                                setSheetState(() {
+                                  isWorking = true;
+                                  error = null;
+                                });
+                                try {
+                                  final authService = AuthService();
+                                  if (isLogin) {
+                                    await authService.signIn(
+                                      email: _emailCtrl.text.trim(),
+                                      password: _passwordCtrl.text,
+                                    );
+                                  } else {
+                                    await authService.signUp(
+                                      email: _emailCtrl.text.trim(),
+                                      password: _passwordCtrl.text,
+                                      displayName: _nameCtrl.text.trim(),
+                                      role: role,
+                                    );
+                                  }
+
+                                  if (ctx.mounted) {
+                                    Navigator.pop(ctx, true);
+                                    _onAuthSuccess(role);
+                                  }
+                                } catch (e) {
+                                  setSheetState(() {
+                                    isWorking = false;
+                                    error = e.toString().replaceAll('Exception: ', '');
+                                  });
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: appColors.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: isWorking
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                isLogin ? 'Sign In' : 'Create Account',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Toggle sign-up / sign-in
+                    TextButton(
+                      onPressed: () {
+                        setSheetState(() {
+                          isLogin = !isLogin;
+                          error = null;
+                        });
+                      },
+                      child: Text(
+                        isLogin
+                            ? "Don't have an account? Sign Up"
+                            : 'Already have an account? Sign In',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: appColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _onAuthSuccess(String role) async {
+    if (!mounted) return;
+    setState(() => _isSaving = true);
+
     final profile = context.read<ProfileProvider>();
     await profile.updateUserRole(role);
 
-    try {
-      final profileService = ProfileService();
-      await profileService.upsertProfile(
-        firebaseUid: firebaseUser.uid,
-        role: role,
-        displayName: firebaseUser.displayName ?? profile.parentName,
-        email: firebaseUser.email ?? profile.parentEmail,
-      );
+    // Load profile from Supabase
+    await profile.initializeFromSupabase();
 
-      // Reload profile from Supabase so provider has fresh data
-      await profile.loadProfile(firebaseUser.uid);
-    } catch (e) {
-      debugPrint('[RoleSelection] Error saving role to Supabase: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Profile saved locally. Sync will retry later.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
-
-    // ── 3. Mark onboarding as done for doctors, not for parents ──
+    // Mark onboarding as done for doctors, not for parents
     if (role == 'doctor') {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('onboarding_done', true);
@@ -103,13 +279,11 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
     if (!mounted) return;
     setState(() => _isSaving = false);
 
-    // ── 4. Navigate based on role ──
+    // Navigate based on role
     final Widget destination;
     if (role == 'doctor') {
-      // Doctors skip onboarding → go straight to dashboard
       destination = const DoctorBottomNavBar();
     } else {
-      // Parents see onboarding first
       destination = const OnboardingScreen();
     }
 
@@ -227,7 +401,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                             ),
                             const SizedBox(width: 10),
                             Text(
-                              'Signing in & setting up…',
+                              'Setting up your profile…',
                               style: GoogleFonts.poppins(
                                 color: const Color(0xFF6B7280),
                                 fontSize: 13,
@@ -256,6 +430,57 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Auth Text Field Widget ────────────────────────────────────────────────────
+
+class _AuthTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  final bool obscure;
+  final TextInputType keyboardType;
+
+  const _AuthTextField({
+    required this.controller,
+    required this.label,
+    required this.icon,
+    this.obscure = false,
+    this.keyboardType = TextInputType.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      keyboardType: keyboardType,
+      style: GoogleFonts.poppins(fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.poppins(
+          fontSize: 14,
+          color: const Color(0xFF9CA3AF),
+        ),
+        prefixIcon: Icon(icon, size: 20, color: const Color(0xFF9CA3AF)),
+        filled: true,
+        fillColor: const Color(0xFFF9FAFB),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: appColors.primary, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }

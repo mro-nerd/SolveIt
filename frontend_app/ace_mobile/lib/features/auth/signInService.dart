@@ -1,45 +1,6 @@
-import 'dart:developer' as developer;
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/services.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-
-class GoogleAuthService {
-  Future<User?> signInWithGoogle() async {
-    try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-
-      if (googleUser == null) return null;
-
-      final googleAuth = await googleUser.authentication;
-
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final userCredential = await FirebaseAuth.instance.signInWithCredential(
-        credential,
-      );
-
-      return userCredential.user;
-    } on PlatformException catch (e) {
-      developer.log(
-        'Google Sign-In PlatformException: ${e.code} - ${e.message}',
-        name: 'GoogleAuthService',
-      );
-      return null;
-    } on FirebaseAuthException catch (e) {
-      developer.log(
-        'Firebase Auth Error: ${e.code} - ${e.message}',
-        name: 'GoogleAuthService',
-      );
-      return null;
-    } catch (e) {
-      developer.log(
-        'Sign-In unexpected error: $e',
-        name: 'GoogleAuthService',
-      );
-      return null;
-    }
-  }
-}
+// This file previously contained GoogleAuthService (Firebase Google Sign-In).
+// Google Sign-In has been removed in favour of Supabase email/password auth.
+// See: lib/backend/services/auth_service.dart for the replacement.
+//
+// This file is kept as a placeholder so that any lingering imports don't break
+// the build. You can safely delete this file once all references are removed.

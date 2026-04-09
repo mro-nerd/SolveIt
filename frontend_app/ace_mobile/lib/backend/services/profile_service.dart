@@ -5,9 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class ProfileService {
   SupabaseClient get _db => SupabaseClientManager.client;
 
-  /// Creates or updates a profile row keyed by [firebaseUid].
+  /// Creates or updates a profile row keyed by Supabase auth [userId].
   Future<void> upsertProfile({
-    required String firebaseUid,
+    required String userId,
     required String role,
     required String displayName,
     required String email,
@@ -15,26 +15,26 @@ class ProfileService {
     try {
       await _db.from('profiles').upsert(
         {
-          'firebase_uid': firebaseUid,
+          'id': userId,
           'display_name': displayName,
           'email': email,
           'role': role,
         },
-        onConflict: 'firebase_uid',
+        onConflict: 'id',
       );
     } catch (e) {
       throw Exception('ProfileService.upsertProfile failed: $e');
     }
   }
 
-  /// Fetches the full profile row for the given Firebase UID.
+  /// Fetches the full profile row for the given Supabase user ID.
   /// Returns `null` if no profile exists yet (first-time user).
-  Future<Map<String, dynamic>?> getProfile(String firebaseUid) async {
+  Future<Map<String, dynamic>?> getProfile(String userId) async {
     try {
       final response = await _db
           .from('profiles')
           .select()
-          .eq('firebase_uid', firebaseUid)
+          .eq('id', userId)
           .maybeSingle();
       return response;
     } catch (e) {
