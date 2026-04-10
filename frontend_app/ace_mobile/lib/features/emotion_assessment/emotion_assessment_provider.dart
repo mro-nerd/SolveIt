@@ -253,7 +253,11 @@ class EmotionAssessmentProvider extends ChangeNotifier {
       }
       debugPrint('[EmotionAssessment] Session saved: ${result.sessionId}');
       _sessionSaved = true;
-      _triggerAiSummary(result.sessionId);
+      _triggerAiSummary(
+        sessionId: result.sessionId,
+        score: score,
+        rawMetrics: rawMetrics,
+      );
     } catch (e) {
       _saveError = 'Failed to save session: $e';
       debugPrint('[EmotionAssessment] Save error: $e');
@@ -263,9 +267,29 @@ class EmotionAssessmentProvider extends ChangeNotifier {
     }
   }
 
-  /// Placeholder for Day 4 AI summary generation.
-  void _triggerAiSummary(String sessionId) {
-    debugPrint('[EmotionAssessment] AI summary trigger for $sessionId — not yet implemented');
+  /// Fires off an async AI summary generation. Errors are logged, never thrown.
+  void _triggerAiSummary({
+    required String sessionId,
+    required double score,
+    required Map<String, dynamic> rawMetrics,
+  }) {
+    // Risk flag is computed by SessionService._computeRiskFlag, replicate here
+    final String riskFlag;
+    if (score < 40) {
+      riskFlag = 'high';
+    } else if (score <= 65) {
+      riskFlag = 'medium';
+    } else {
+      riskFlag = 'low';
+    }
+
+    AiSummaryService().generateAndSave(
+      sessionId: sessionId,
+      sessionType: 'emotion_assessment',
+      score: score,
+      riskFlag: riskFlag,
+      rawMetrics: rawMetrics,
+    );
   }
 
   /// Reset to idle state.

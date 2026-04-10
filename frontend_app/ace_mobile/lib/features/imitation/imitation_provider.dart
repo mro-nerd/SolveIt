@@ -239,7 +239,11 @@ class ImitationProvider extends ChangeNotifier {
         debugPrint('[Imitation] Duplicate — already recorded today');
       }
       debugPrint('[Imitation] Session saved: ${result.sessionId}');
-      _triggerAiSummary(result.sessionId);
+      _triggerAiSummary(
+        sessionId: result.sessionId,
+        score: scorePercent.clamp(0, 100).toDouble(),
+        rawMetrics: rawMetrics,
+      );
       _sessionSaved = true;
     } catch (e) {
       _saveError = 'Failed to save session: $e';
@@ -250,9 +254,28 @@ class ImitationProvider extends ChangeNotifier {
     }
   }
 
-  /// Placeholder for Day 4 AI summary generation.
-  void _triggerAiSummary(String sessionId) {
-    debugPrint('[Imitation] AI summary trigger for $sessionId — not yet implemented');
+  /// Fires off an async AI summary generation. Errors are logged, never thrown.
+  void _triggerAiSummary({
+    required String sessionId,
+    required double score,
+    required Map<String, dynamic> rawMetrics,
+  }) {
+    final String riskFlag;
+    if (score < 40) {
+      riskFlag = 'high';
+    } else if (score <= 65) {
+      riskFlag = 'medium';
+    } else {
+      riskFlag = 'low';
+    }
+
+    AiSummaryService().generateAndSave(
+      sessionId: sessionId,
+      sessionType: 'imitation',
+      score: score,
+      riskFlag: riskFlag,
+      rawMetrics: rawMetrics,
+    );
   }
 
   void reset() {

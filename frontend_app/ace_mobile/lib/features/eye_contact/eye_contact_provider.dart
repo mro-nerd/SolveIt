@@ -131,7 +131,11 @@ class EyeContactProvider extends ChangeNotifier {
         debugPrint('[EyeContact] Duplicate — already recorded today');
       }
       debugPrint('[EyeContact] Session saved: ${result.sessionId}');
-      _triggerAiSummary(result.sessionId);
+      _triggerAiSummary(
+        sessionId: result.sessionId,
+        score: scorePercent.clamp(0, 100).toDouble(),
+        rawMetrics: rawMetrics,
+      );
     } catch (e) {
       _saveError = 'Failed to save session: $e';
       debugPrint('[EyeContact] Save error: $e');
@@ -141,9 +145,28 @@ class EyeContactProvider extends ChangeNotifier {
     }
   }
 
-  /// Placeholder for Day 4 AI summary generation.
-  void _triggerAiSummary(String sessionId) {
-    debugPrint('[EyeContact] AI summary trigger for $sessionId — not yet implemented');
+  /// Fires off an async AI summary generation. Errors are logged, never thrown.
+  void _triggerAiSummary({
+    required String sessionId,
+    required double score,
+    required Map<String, dynamic> rawMetrics,
+  }) {
+    final String riskFlag;
+    if (score < 40) {
+      riskFlag = 'high';
+    } else if (score <= 65) {
+      riskFlag = 'medium';
+    } else {
+      riskFlag = 'low';
+    }
+
+    AiSummaryService().generateAndSave(
+      sessionId: sessionId,
+      sessionType: 'eye_contact',
+      score: score,
+      riskFlag: riskFlag,
+      rawMetrics: rawMetrics,
+    );
   }
 
   /// Resets everything back to initial values without starting a session.
