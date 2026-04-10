@@ -2,6 +2,23 @@
 
 All notable changes to the ACE Mobile project will be documented in this file.
 
+## [4.1.1+5] - 2026-04-10
+
+### ✨ Features
+- **feat:** Dynamic home screen, clinical notes, and dashboard redesign
+
+### 🐛 Bug Fixes
+- **fix:** Address data synchronization and UI bugs for v4.0.0
+- **fix:** Improved error handling
+
+### 💄 UI & Polish
+- **ui:** Improved responsivity
+
+### 📝 Documentation
+- **docs:** Updated README
+
+---
+
 ## [4.0.0+4] - 2026-04-10
 
 # 🚀 ACE Mobile v4.0.0 — The Cloud-Native Edition
