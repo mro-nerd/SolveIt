@@ -205,6 +205,35 @@ class ProfileProvider extends ChangeNotifier {
     return newChild;
   }
 
+  /// Update an existing child's details in Supabase, then reload the list.
+  Future<void> updateChildInSupabase({
+    required String childId,
+    required String name,
+    required String dob,
+    required String gender,
+    String? diagnosisStatus,
+  }) async {
+    await _childService.updateChild(
+      childId: childId,
+      name: name,
+      dob: dob,
+      gender: gender,
+      diagnosisStatus: diagnosisStatus ?? 'pending',
+    );
+    // Reload the children list so the UI reflects changes
+    await _loadChildFromSupabase();
+    // If editing the currently active child, re-hydrate local state
+    if (_currentChild != null && _currentChild!['id'] == childId) {
+      final updated = _children.firstWhere(
+        (c) => c['id'] == childId,
+        orElse: () => _currentChild!,
+      );
+      _currentChild = updated;
+      _hydrateLocalFromChild(updated);
+    }
+    notifyListeners();
+  }
+
   // ── Supabase Sync ────────────────────────────────────────────────────────
   Future<void> syncToSupabase() async {
     try {
