@@ -284,4 +284,11 @@ class EmotionAssessmentProvider extends ChangeNotifier {
     _sessionSaved = false;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    // Timers are managed by the screen, not this provider.
+    // Override for consistent lifecycle management.
+    super.dispose();
+  }
 }

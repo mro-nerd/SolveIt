@@ -274,6 +274,12 @@ class ImitationProvider extends ChangeNotifier {
     _sessionSaved = false;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
 }
 
 /// Result data for a single pose attempt.

@@ -160,4 +160,11 @@ class EyeContactProvider extends ChangeNotifier {
     _saveError = null;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    // No timers/subscriptions owned directly by this provider,
+    // but override for consistent lifecycle management.
+    super.dispose();
+  }
 }

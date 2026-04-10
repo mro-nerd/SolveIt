@@ -37,8 +37,7 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
   static const int _kRightElbow = 8;
   static const int _kLeftWrist = 9;
   static const int _kRightWrist = 10;
-  static const int _kLeftHip = 11;
-  static const int _kRightHip = 12;
+  // _kLeftHip (11) and _kRightHip (12) reserved for future lower-body poses
 
   @override
   void initState() {
@@ -47,12 +46,12 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
   }
 
   Future<void> _initialize() async {
-    print('INIT STARTED');
+    debugPrint('INIT STARTED');
     try {
       // Load TFLite model
       _interpreter =
           await Interpreter.fromAsset('assets/models/movenet.tflite');
-      print('INTERPRETER LOADED');
+      debugPrint('INTERPRETER LOADED');
 
       // Initialize front camera
       final cameras = await availableCameras();
@@ -67,7 +66,7 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
         enableAudio: false,
       );
       await _cameraController!.initialize();
-      print('CAMERA READY');
+      debugPrint('CAMERA READY');
 
       // Start periodic inference every 500ms
       _timer = Timer.periodic(const Duration(milliseconds: 500), (_) {
@@ -79,11 +78,11 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
   }
 
   Future<void> _captureAndInfer() async {
-    print('_captureAndInfer CALLED — processing=$_isProcessing controller=${_cameraController != null} initialized=${_cameraController?.value.isInitialized}');
+    debugPrint('_captureAndInfer CALLED — processing=$_isProcessing controller=${_cameraController != null} initialized=${_cameraController?.value.isInitialized}');
     if (_isProcessing ||
         _cameraController == null ||
         !_cameraController!.value.isInitialized) {
-      print('_captureAndInfer SKIPPED');
+      debugPrint('_captureAndInfer SKIPPED');
       return;
     }
     _isProcessing = true;
@@ -123,14 +122,14 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
 
       // 5. Extract keypoints from output: each is [y, x, confidence]
       final keypoints = output[0][0]; // 17 keypoints, each [y, x, conf]
-      print('=== KEYPOINTS ===');
+      debugPrint('=== KEYPOINTS ===');
       for (int i = 0; i < 17; i++) {
-        print('kp[$i] conf: ${keypoints[i][2]}');
+        debugPrint('kp[$i] conf: ${keypoints[i][2]}');
       }
-      List<double> _kp(int idx) => [
-            (keypoints[idx][0] as double),
-            (keypoints[idx][1] as double),
-            (keypoints[idx][2] as double),
+      List<double> kp(int idx) => [
+            keypoints[idx][0],
+            keypoints[idx][1],
+            keypoints[idx][2],
           ];
 
       // 6. Only require shoulder confidence (elbows/wrists often too low)
@@ -138,9 +137,9 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
         _kLeftShoulder, _kRightShoulder,
       ];
       final allConfident = requiredIndices.every(
-        (i) => _kp(i)[2] > 0.1,
+        (i) => kp(i)[2] > 0.1,
       );
-      print('allConfident: $allConfident');
+      debugPrint('allConfident: $allConfident');
       if (!allConfident) {
         _isProcessing = false;
         return;
@@ -149,33 +148,33 @@ class _CameraPoseDetectorState extends State<CameraPoseDetector> {
       // 7. Calculate joint angles using atan2
       final angles = <String, double>{
         'left_elbow': _angleDeg(
-          _kp(_kLeftShoulder),
-          _kp(_kLeftElbow),
-          _kp(_kLeftWrist),
+          kp(_kLeftShoulder),
+          kp(_kLeftElbow),
+          kp(_kLeftWrist),
         ),
         'right_elbow': _angleDeg(
-          _kp(_kRightShoulder),
-          _kp(_kRightElbow),
-          _kp(_kRightWrist),
+          kp(_kRightShoulder),
+          kp(_kRightElbow),
+          kp(_kRightWrist),
         ),
         'left_shoulder': _angleDeg(
-          [_kp(_kLeftShoulder)[0] + 0.15, _kp(_kLeftShoulder)[1], 1.0],
-          _kp(_kLeftShoulder),
-          _kp(_kLeftElbow),
+          [kp(_kLeftShoulder)[0] + 0.15, kp(_kLeftShoulder)[1], 1.0],
+          kp(_kLeftShoulder),
+          kp(_kLeftElbow),
         ),
         'right_shoulder': _angleDeg(
-          [_kp(_kRightShoulder)[0] + 0.15, _kp(_kRightShoulder)[1], 1.0],
-          _kp(_kRightShoulder),
-          _kp(_kRightElbow),
+          [kp(_kRightShoulder)[0] + 0.15, kp(_kRightShoulder)[1], 1.0],
+          kp(_kRightShoulder),
+          kp(_kRightElbow),
         ),
       };
 
-      print('angles: $angles');
+      debugPrint('angles: $angles');
 
       // 8. Fire callback
       widget.onAnglesDetected(angles);
     } catch (e) {
-      print('POSE ERROR: $e');
+      debugPrint('POSE ERROR: $e');
       widget.onError(e.toString());
     } finally {
       _isProcessing = false;

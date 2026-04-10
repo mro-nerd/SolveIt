@@ -1,5 +1,6 @@
 import 'package:ace_mobile/backend/backend.dart';
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/dashboard/widgets/session_metrics_card.dart';
 import 'package:ace_mobile/features/doctor/screens/doctor_therapy_plan_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -156,13 +157,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     }
   }
 
-  String _formatKeyNicely(String key) {
-    return key
-        .replaceAll('_', ' ')
-        .split(' ')
-        .map((w) => w.isNotEmpty ? w[0].toUpperCase() + w.substring(1) : '')
-        .join(' ');
-  }
 
   double _avgScoreForType(String type) {
     final sessions = _sessionsByType[type];
@@ -1038,7 +1032,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             sessions: sessions,
             riskColor: _riskColor,
             formatDate: _formatDate,
-            formatKeyNicely: _formatKeyNicely,
           );
         }),
       ],
@@ -1057,7 +1050,6 @@ class _SessionTypeGroup extends StatefulWidget {
   final List<Map<String, dynamic>> sessions;
   final Color Function(String?) riskColor;
   final String Function(String?) formatDate;
-  final String Function(String) formatKeyNicely;
 
   const _SessionTypeGroup({
     required this.typeLabel,
@@ -1066,7 +1058,6 @@ class _SessionTypeGroup extends StatefulWidget {
     required this.sessions,
     required this.riskColor,
     required this.formatDate,
-    required this.formatKeyNicely,
   });
 
   @override
@@ -1130,7 +1121,6 @@ class _SessionTypeGroupState extends State<_SessionTypeGroup> {
             session: session,
             riskColor: widget.riskColor,
             formatDate: widget.formatDate,
-            formatKeyNicely: widget.formatKeyNicely,
           ),
         ),
 
@@ -1163,13 +1153,11 @@ class _SessionCard extends StatefulWidget {
   final Map<String, dynamic> session;
   final Color Function(String?) riskColor;
   final String Function(String?) formatDate;
-  final String Function(String) formatKeyNicely;
 
   const _SessionCard({
     required this.session,
     required this.riskColor,
     required this.formatDate,
-    required this.formatKeyNicely,
   });
 
   @override
@@ -1300,60 +1288,18 @@ class _SessionCardState extends State<_SessionCard> {
                 ),
               ),
 
-            // Expanded raw_metrics
+            // Expanded metrics — formatted card instead of raw JSON
             if (_expanded && rawMetrics != null) ...[
               const Divider(height: 24),
-              Text(
-                'Raw Metrics',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF374151),
-                ),
+              SessionMetricsCard(
+                sessionType: widget.session['session_type'] as String? ?? 'unknown',
+                rawMetrics: Map<String, dynamic>.from(rawMetrics),
+                score: score,
+                riskFlag: riskFlag ?? 'low',
+                completedAt: completedAt != null
+                    ? DateTime.parse(completedAt)
+                    : DateTime.now(),
               ),
-              const SizedBox(height: 8),
-              ...rawMetrics.entries.map((entry) {
-                final value = entry.value;
-                String displayValue;
-                if (value is List) {
-                  displayValue = value.length > 5
-                      ? '[${value.take(5).join(', ')}... +${value.length - 5} more]'
-                      : value.toString();
-                } else if (value is Map) {
-                  displayValue = '{${value.length} entries}';
-                } else {
-                  displayValue = value.toString();
-                }
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 140,
-                        child: Text(
-                          widget.formatKeyNicely(entry.key),
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: const Color(0xFF6B7280),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          displayValue,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF111827),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
             ],
           ],
         ),
