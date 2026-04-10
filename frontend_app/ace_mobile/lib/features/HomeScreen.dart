@@ -385,11 +385,17 @@ class statusCard extends StatelessWidget {
     final latestSummary = sessions.isNotEmpty
         ? sessions.first['ai_summary'] as String?
         : null;
-    final summaryText = latestSummary != null && latestSummary.isNotEmpty
-        ? latestSummary
-        : avgScore != null
-            ? 'Average score: ${avgScore.toStringAsFixed(0)}% across ${sessions.length} sessions. Keep going!'
-            : 'Complete your first assessment to see a personalized summary here.';
+    final childName = context.read<ProfileProvider>().displayChildName;
+    final String summaryText;
+    if (sessions.isEmpty) {
+      summaryText = 'Complete your first screening to see $childName\'s summary here.';
+    } else if (latestSummary != null && latestSummary.isNotEmpty) {
+      summaryText = latestSummary;
+    } else if (avgScore != null) {
+      summaryText = 'AI summary is being generated... Average score: ${avgScore.toStringAsFixed(0)}% across ${sessions.length} sessions.';
+    } else {
+      summaryText = 'AI summary is being generated for $childName\'s latest session...';
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),

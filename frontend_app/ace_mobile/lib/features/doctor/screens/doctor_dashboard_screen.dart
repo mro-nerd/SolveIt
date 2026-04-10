@@ -189,6 +189,10 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
                         ),
                       ),
                       const SizedBox(height: 20),
+
+                      // ── Backfill AI Summaries ──────────────────────────
+                      _BackfillSummariesButton(),
+                      const SizedBox(height: 20),
                     ],
                   ],
                 ),
@@ -1254,3 +1258,117 @@ class _RecentPatientCard extends StatelessWidget {
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Backfill AI Summaries Button
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _BackfillSummariesButton extends StatefulWidget {
+  @override
+  State<_BackfillSummariesButton> createState() =>
+      _BackfillSummariesButtonState();
+}
+
+class _BackfillSummariesButtonState extends State<_BackfillSummariesButton> {
+  bool _isRunning = false;
+  int? _result;
+
+  Future<void> _runBackfill() async {
+    setState(() {
+      _isRunning = true;
+      _result = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Backfilling AI summaries… This may take a moment.'),
+        duration: Duration(seconds: 3),
+      ),
+    );
+
+    final count = await AiSummaryService().backfillAll();
+
+    if (mounted) {
+      setState(() {
+        _isRunning = false;
+        _result = count;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ Backfill complete: $count summaries generated.'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: InkWell(
+        onTap: _isRunning ? null : _runBackfill,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: _isRunning
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.deepPurple,
+                        ),
+                      )
+                    : const Icon(Icons.auto_fix_high_rounded,
+                        size: 20, color: Colors.deepPurple),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Backfill AI Summaries',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF111827),
+                      ),
+                    ),
+                    Text(
+                      _result != null
+                          ? '$_result summaries generated'
+                          : 'Generate summaries for past sessions',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!_isRunning)
+                Icon(Icons.play_arrow_rounded,
+                    color: Colors.deepPurple.shade300, size: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

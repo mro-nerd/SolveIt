@@ -173,8 +173,13 @@ class AssessmentProvider extends ChangeNotifier {
       }
       debugPrint('[AssessmentProvider] Session saved: ${result.sessionId}');
 
-      // Trigger AI summary (placeholder for Day 4)
-      _triggerAiSummary(result.sessionId);
+      // Fire-and-forget AI summary generation
+      _triggerAiSummary(
+        sessionId: result.sessionId,
+        score: score.toDouble(),
+        riskFlag: _computeRiskFlagLocal(),
+        rawMetrics: rawMetrics,
+      );
 
       // Update diagnosis status based on risk
       if (childId != null && childId.isNotEmpty) {
@@ -215,9 +220,27 @@ class AssessmentProvider extends ChangeNotifier {
     if (_saveError == null) _sessionSaved = true;
   }
 
-  /// Placeholder for Day 4 AI summary generation.
-  void _triggerAiSummary(String sessionId) {
-    debugPrint('[AssessmentProvider] AI summary trigger for $sessionId — not yet implemented');
+  /// Fires off an async AI summary generation. Errors are logged, never thrown.
+  void _triggerAiSummary({
+    required String sessionId,
+    required double score,
+    required String riskFlag,
+    required Map<String, dynamic> rawMetrics,
+  }) {
+    AiSummaryService().generateAndSave(
+      sessionId: sessionId,
+      sessionType: 'mchat',
+      score: score,
+      riskFlag: riskFlag,
+      rawMetrics: rawMetrics,
+    );
+  }
+
+  /// Local risk flag computation for the AI summary prompt.
+  String _computeRiskFlagLocal() {
+    if (riskScore >= 8) return 'high';
+    if (riskScore >= 3) return 'medium';
+    return 'low';
   }
 
   // ─── Private ────────────────────────────────────────────────────────────────

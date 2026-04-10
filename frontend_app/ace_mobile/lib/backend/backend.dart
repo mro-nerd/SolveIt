@@ -8,3 +8,4 @@ export 'services/child_service.dart';
 export 'services/session_service.dart';
 export 'services/therapy_service.dart';
 export 'services/clinical_notes_service.dart';
+export 'services/ai_summary_service.dart';
