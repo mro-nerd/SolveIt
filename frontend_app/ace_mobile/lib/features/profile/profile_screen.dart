@@ -156,7 +156,28 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (mounted) await context.read<ProfileProvider>().clearAll();
 
     // 2. Sign out from Supabase
-    await AuthService().signOut();
+    try {
+      await AuthService().signOut();
+    } catch (e) {
+      // Sign-out failed (e.g. network issue), but we still clear local state
+      // and navigate away so the user isn't stuck.
+      debugPrint('[ProfileScreen] signOut error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Sign out encountered an issue, but you have been logged out locally.',
+              style: GoogleFonts.poppins(color: Colors.white),
+            ),
+            backgroundColor: Colors.orange.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
 
     // 3. Navigate to the Get Started screen, removing all routes
     navigator.pushAndRemoveUntil(

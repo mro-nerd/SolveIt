@@ -6,38 +6,53 @@ This document provides a detailed walkthrough of the ACE Mobile user experience,
 
 ## 🚀 1. App Entry & Onboarding
 
-### 🟢 Splash Screen
-- **Logic**: Pre-loads user preferences from `SharedPreferences` while displaying a premium animation sequence.
-- **Visuals**: Features a spring-scale logo animation and a segmented loading bar.
-![Splash Screen](docs/screenshots/splash.png)
-
-### 🔵 Authentication
-- **Logic**: Secure gateway using Supabase Auth. Supports Email/Password and Google Sign-In via `AuthService`.
-- **Visuals**: Professional login screen with high-quality background imagery.
-![Login Screen](docs/screenshots/login.png)
+### 🟢 Welcome
+- **Logic**: Entry point introducing the ACE application to new and returning users.
+- **Visuals**: Features a premium layout and branding to welcome the user.
+![Welcome Screen](docs/screenshots/welcome_page.jpeg)
 
 ### 🟡 Onboarding Walkthrough
-- **Logic**: A 5-page introduction for new users. Sets a persistent flag (`onboarding_done`) upon completion.
-- **Visuals**: Glassmorphism cards and descriptive icons.
-![Onboarding](docs/screenshots/onboarding.png)
+- **Logic**: A multi-page introduction for new users detailing features and value propositions. Sets a persistent flag (`onboarding_done`) upon completion.
+- **Visuals**: High-quality informative cards and descriptive imagery.
+![Onboarding 1](docs/screenshots/onboarding_screen.jpeg)
+![Onboarding 2](docs/screenshots/onboarding_screen0.jpeg)
+![Onboarding 3](docs/screenshots/onboarding_screen1.jpeg)
+![Onboarding 4](docs/screenshots/onboarding_screen2.jpeg)
+![Onboarding 5](docs/screenshots/onboarding_screen3.jpeg)
 
 ---
 
 ## 🏠 2. The Main Dashboard
 
 ### 👨‍👩‍👧 Parent Home Screen
-- **Logic**: Dynamic state-driven greeting and daily goal tracker. Fetches child profile data from `ProfileProvider`.
+- **Logic**: Dynamic state-driven greeting and daily goal tracker. Fetches child profile data and quick access to tools.
 - **Visuals**: Clean card-based layout with quick action buttons for assessments.
-![Parent Dashboard](docs/screenshots/home_parent.png)
+![Parent Dashboard 1](docs/screenshots/home_screen.jpeg)
+![Parent Dashboard 2](docs/screenshots/home_screen1.jpeg)
 
 ### 👨‍⚕️ Doctor Dashboard
-- **Logic**: View-only mode for medical professionals to monitor patient progress and review screening results.
-- **Visuals**: Summary list of registered patients with status indicators.
-![Doctor Dashboard](docs/screenshots/home_doctor.png)
+- **Logic**: Dashboard for medical professionals to monitor patient progress, review screening results, and manage linked patients.
+- **Visuals**: Summary list of registered patients, insightful statistics, and simple navigation.
+![Doctor Dashboard 1](docs/screenshots/Doctor_dashboard1.jpeg)
+![Doctor Dashboard 2](docs/screenshots/Doctor_dashboard2.jpeg)
+![Doctor Dashboard 3](docs/screenshots/doctor_dashboard3.jpeg)
 
 ---
 
-## 🧠 3. AI Screening & Assessment Games
+## 🔗 3. Patient Management & Linking
+
+### ➕ Adding & Linking Patients
+- **Logic**: Allows doctors to link new patients using a join code or by adding child details. Parents can view their child's join code for seamless connect.
+- **Visuals**: Form-based screens and informative UI for securely linking accounts.
+![Link New Patient](docs/screenshots/link_new_patient_screen.jpeg)
+![Child Details](docs/screenshots/child_details_screen.jpeg)
+![Patient Join Code](docs/screenshots/patients_porfile_join_code%20.jpeg)
+![Child Added](docs/screenshots/chid_added_message%20.jpeg)
+![Added Patients Review](docs/screenshots/added_patients%20.jpeg)
+
+---
+
+## 🧠 4. AI Screening & Assessment Games
 
 ### 🦋 Eye Contact (Butterfly Exercise)
 - **Logic**: Real-time gaze vector tracking using Google ML Kit. Rewards the child when they maintain eye contact with the moving butterfly.
@@ -54,9 +69,21 @@ This document provides a detailed walkthrough of the ACE Mobile user experience,
 - **Visuals**: Emotional stimuli reaction capture.
 ![Emotion Assessment](docs/screenshots/emotion_assessment.png)
 
+### 📋 Standard Assessments (M-CHAT)
+- **Logic**: Guided questionnaires for early detection and developmental tracking.
+- **Visuals**: Easy-to-read questions, descriptive choices, and progress indicators.
+![Assessment Overview](docs/screenshots/assessment%20.jpeg)
+![M-CHAT Assessment](docs/screenshots/M-chat%20assesmeent%20.jpeg)
+
 ---
 
-## 🧘‍♀️ 4. Therapy & Grounding Tools
+## 🧘‍♀️ 5. Therapy & Grounding Tools
+
+### 🫂 Therapy Screen & ACE Assistance
+- **Logic**: AI-driven and structured therapy modules for continued progress. Direct access to ACE AI Assistant for guidance.
+- **Visuals**: Interactive cards and conversational AI interfaces.
+![Therapy Screen](docs/screenshots/Therapy-screen.jpeg)
+![ACE Assistance](docs/screenshots/ace_assistance.jpeg)
 
 ### 🫁 Breathing Pacer
 - **Logic**: Animated 4-2-6 breathing cycle (Inhale, Hold, Exhale) designed to lower anxiety.
@@ -70,9 +97,23 @@ This document provides a detailed walkthrough of the ACE Mobile user experience,
 
 ---
 
-## 👤 5. Profile & Settings
+## 📊 6. Progress & Community
 
-### ⚙️ User Settings
-- **Logic**: Allows editing of child information and medical preferences. Integrated with local and cloud storage.
-- **Visuals**: Clean form layouts and profile image selection.
-![Profile Settings](docs/screenshots/profile_settings.png)
+### 📈 Progress Tracking
+- **Logic**: Visualizes completed assessments, therapy sessions, and milestones to show developmental trends over time.
+- **Visuals**: Intuitive layout highlighting achievements.
+![Progress Screen](docs/screenshots/progress_screen.jpeg)
+
+### 🤝 Community
+- **Logic**: Connects parents and caregivers with community support, allowing them to share experiences and find resources.
+- **Visuals**: Discussion threads, articles, and community highlights.
+![Community Screen](docs/screenshots/community.jpeg)
+
+---
+
+## 👤 7. Profile & Settings
+
+### ⚙️ User Profiles (Doctor/Parent)
+- **Logic**: Allows editing of account information, viewing associated settings, and managing app preferences.
+- **Visuals**: Clean layouts presenting relevant user data clearly.
+![Doctor Profile](docs/screenshots/profile_doctor.jpeg)

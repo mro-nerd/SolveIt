@@ -173,6 +173,28 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                         onPressed: isWorking
                             ? null
                             : () async {
+                                // ── Client-side validation (fast-fail) ──
+                                final emailVal = _emailCtrl.text.trim();
+                                final passwordVal = _passwordCtrl.text;
+                                final nameVal = _nameCtrl.text.trim();
+
+                                if (emailVal.isEmpty) {
+                                  setSheetState(() => error = 'Please enter your email address.');
+                                  return;
+                                }
+                                if (!isLogin && nameVal.isEmpty) {
+                                  setSheetState(() => error = 'Please enter your full name.');
+                                  return;
+                                }
+                                if (passwordVal.isEmpty) {
+                                  setSheetState(() => error = 'Please enter your password.');
+                                  return;
+                                }
+                                if (!isLogin && passwordVal.length < 6) {
+                                  setSheetState(() => error = 'Password must be at least 6 characters.');
+                                  return;
+                                }
+
                                 setSheetState(() {
                                   isWorking = true;
                                   error = null;
@@ -181,14 +203,14 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                                   final authService = AuthService();
                                   if (isLogin) {
                                     await authService.signIn(
-                                      email: _emailCtrl.text.trim(),
-                                      password: _passwordCtrl.text,
+                                      email: emailVal,
+                                      password: passwordVal,
                                     );
                                   } else {
                                     await authService.signUp(
-                                      email: _emailCtrl.text.trim(),
-                                      password: _passwordCtrl.text,
-                                      displayName: _nameCtrl.text.trim(),
+                                      email: emailVal,
+                                      password: passwordVal,
+                                      displayName: nameVal,
                                       role: role,
                                     );
                                   }
@@ -264,38 +286,52 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
     if (!mounted) return;
     setState(() => _isSaving = true);
 
-    final profile = context.read<ProfileProvider>();
-    await profile.updateUserRole(role);
+    try {
+      final profile = context.read<ProfileProvider>();
+      await profile.updateUserRole(role);
 
-    // Load profile from Supabase
-    await profile.initializeFromSupabase();
+      // Load profile from Supabase
+      await profile.initializeFromSupabase();
 
-    // Mark onboarding as done for doctors, not for parents
-    if (role == 'doctor') {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('onboarding_done', true);
+      // Mark onboarding as done for doctors, not for parents.
+      if (role == 'doctor') {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('onboarding_done', true);
+      }
+
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+
+      // Navigate based on role.
+      final Widget destination = role == 'doctor'
+          ? const DoctorBottomNavBar()
+          : const OnboardingScreen();
+
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => destination,
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to set up your profile: ${e.toString().replaceAll('Exception: ', '')}',
+          ),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     }
-
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-
-    // Navigate based on role
-    final Widget destination;
-    if (role == 'doctor') {
-      destination = const DoctorBottomNavBar();
-    } else {
-      destination = const OnboardingScreen();
-    }
-
-    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => destination,
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-        transitionDuration: const Duration(milliseconds: 500),
-      ),
-      (route) => false,
-    );
   }
 
   @override
