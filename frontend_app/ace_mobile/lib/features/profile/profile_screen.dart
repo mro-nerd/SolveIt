@@ -498,6 +498,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                       const SizedBox(height: 24),
 
+                      // Manage Children — only for parents with children
+                      if (profile.isParent && profile.children.isNotEmpty)
+                        ..._buildManageChildrenSection(profile),
+
                       // Join code — only for parents with a child
                       if (profile.isParent &&
                           profile.currentChild?['join_code'] != null)
@@ -628,6 +632,477 @@ class _ProfileScreenState extends State<ProfileScreen>
       _childDobCtrl.text =
           '${picked.day.toString().padLeft(2, '0')} / ${picked.month.toString().padLeft(2, '0')} / ${picked.year}';
     }
+  }
+
+  // ── Manage Children section ────────────────────────────────────────────────
+  List<Widget> _buildManageChildrenSection(ProfileProvider profile) {
+    final currentChildId = profile.currentChild?['id'];
+
+    return [
+      _SectionHeader(
+        icon: Icons.group_rounded,
+        label: 'Manage Children',
+      ),
+      const SizedBox(height: 12),
+      _ProfileCard(
+        children: [
+          ...profile.children.asMap().entries.expand((entry) {
+            final index = entry.key;
+            final child = entry.value;
+            final childId = child['id'] as String;
+            final childName = child['child_name'] as String? ?? 'Unnamed';
+            final dob = child['date_of_birth'] as String? ?? '';
+            final isActive = childId == currentChildId;
+
+            return [
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  if (!isActive) {
+                    profile.switchChild(child);
+                    // Refresh controllers with new child data
+                    _childNameCtrl.text = profile.childName;
+                    _childDobCtrl.text = profile.childDob;
+                    _childDiagnosisCtrl.text = profile.childDiagnosis;
+                    _selectedGender =
+                        profile.childGender.isNotEmpty ? profile.childGender : null;
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Switched to $childName',
+                            style: GoogleFonts.poppins(color: Colors.white),
+                          ),
+                          backgroundColor: appColors.primary,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    children: [
+                      // Active indicator
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? appColors.primary.withValues(alpha: 0.12)
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Center(
+                          child: isActive
+                              ? Icon(Icons.check_circle,
+                                  size: 20, color: appColors.primary)
+                              : Text(
+                                  childName.isNotEmpty
+                                      ? childName[0].toUpperCase()
+                                      : '?',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      // Name + DOB
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    childName,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: isActive
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                      color: isActive
+                                          ? appColors.primary
+                                          : const Color(0xFF111827),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (isActive) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: appColors.primary
+                                          .withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      'Active',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600,
+                                        color: appColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (dob.isNotEmpty)
+                              Text(
+                                'DOB: $dob',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: const Color(0xFF9CA3AF),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      // Edit button
+                      IconButton(
+                        icon: Icon(
+                          Icons.edit_outlined,
+                          size: 18,
+                          color: Colors.grey.shade500,
+                        ),
+                        onPressed: () => _showEditChildSheet(child),
+                        tooltip: 'Edit $childName',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Divider between children (but not after last)
+              if (index < profile.children.length - 1) _divider(),
+            ];
+          }),
+        ],
+      ),
+      const SizedBox(height: 24),
+    ];
+  }
+
+  void _showEditChildSheet(Map<String, dynamic> child) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: _EditChildSheet(
+          child: child,
+          onSaved: () {
+            // Refresh controllers if the current child was edited
+            final p = context.read<ProfileProvider>();
+            _childNameCtrl.text = p.childName;
+            _childDobCtrl.text = p.childDob;
+            _childDiagnosisCtrl.text = p.childDiagnosis;
+            _selectedGender =
+                p.childGender.isNotEmpty ? p.childGender : null;
+            setState(() {});
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ── Edit Child Bottom Sheet ──────────────────────────────────────────────────
+
+class _EditChildSheet extends StatefulWidget {
+  final Map<String, dynamic> child;
+  final VoidCallback onSaved;
+
+  const _EditChildSheet({required this.child, required this.onSaved});
+
+  @override
+  State<_EditChildSheet> createState() => _EditChildSheetState();
+}
+
+class _EditChildSheetState extends State<_EditChildSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameCtrl;
+  late TextEditingController _dobCtrl;
+  late TextEditingController _diagnosisCtrl;
+  String? _gender;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(
+        text: widget.child['child_name'] as String? ?? '');
+    _dobCtrl = TextEditingController(
+        text: widget.child['date_of_birth'] as String? ?? '');
+    _diagnosisCtrl = TextEditingController(
+        text: widget.child['diagnosis_status'] as String? ?? '');
+    _gender = widget.child['gender'] as String?;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _dobCtrl.dispose();
+    _diagnosisCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    DateTime initialDate;
+    try {
+      initialDate = DateTime.parse(_dobCtrl.text);
+    } catch (_) {
+      initialDate = now.subtract(const Duration(days: 365 * 3));
+    }
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: now,
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.light(primary: appColors.primary),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      _dobCtrl.text =
+          '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+    }
+  }
+
+  Future<void> _save() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() => _saving = true);
+    try {
+      final childId = widget.child['id'] as String;
+      final dob = _dobCtrl.text.trim();
+
+      await context.read<ProfileProvider>().updateChildInSupabase(
+            childId: childId,
+            name: _nameCtrl.text.trim(),
+            dob: dob,
+            gender: _gender ?? 'Not specified',
+            diagnosisStatus: _diagnosisCtrl.text.trim().isNotEmpty
+                ? _diagnosisCtrl.text.trim()
+                : null,
+          );
+
+      if (mounted) {
+        widget.onSaved();
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Child updated!',
+              style: GoogleFonts.poppins(color: Colors.white),
+            ),
+            backgroundColor: appColors.primary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update: $e',
+              style: GoogleFonts.poppins(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Edit Child',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Name
+            TextFormField(
+              controller: _nameCtrl,
+              textCapitalization: TextCapitalization.words,
+              style: GoogleFonts.poppins(fontSize: 15),
+              decoration: InputDecoration(
+                labelText: 'Child\'s Name',
+                labelStyle: GoogleFonts.poppins(fontSize: 13),
+                prefixIcon: Icon(Icons.face_rounded, color: appColors.primary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: appColors.primary, width: 2),
+                ),
+              ),
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Required' : null,
+            ),
+            const SizedBox(height: 14),
+            // DOB
+            TextFormField(
+              controller: _dobCtrl,
+              readOnly: true,
+              onTap: _pickDob,
+              style: GoogleFonts.poppins(fontSize: 15),
+              decoration: InputDecoration(
+                labelText: 'Date of Birth',
+                labelStyle: GoogleFonts.poppins(fontSize: 13),
+                prefixIcon: Icon(Icons.cake_rounded, color: appColors.primary),
+                suffixIcon: Icon(Icons.calendar_today_rounded,
+                    size: 18, color: appColors.primary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: appColors.primary, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            // Gender
+            DropdownButtonFormField<String>(
+              value: _gender,
+              decoration: InputDecoration(
+                labelText: 'Gender',
+                labelStyle: GoogleFonts.poppins(fontSize: 13),
+                prefixIcon: Icon(Icons.wc_rounded, color: appColors.primary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: appColors.primary, width: 2),
+                ),
+              ),
+              items: ['Male', 'Female', 'Other']
+                  .map((g) => DropdownMenuItem(
+                        value: g,
+                        child: Text(g, style: GoogleFonts.poppins(fontSize: 15)),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _gender = v),
+            ),
+            const SizedBox(height: 14),
+            // Diagnosis
+            TextFormField(
+              controller: _diagnosisCtrl,
+              style: GoogleFonts.poppins(fontSize: 15),
+              decoration: InputDecoration(
+                labelText: 'Diagnosis / Notes',
+                labelStyle: GoogleFonts.poppins(fontSize: 13),
+                prefixIcon: Icon(Icons.medical_information_rounded,
+                    color: appColors.primary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: appColors.primary, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Save button
+            SizedBox(
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _saving ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: appColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 3,
+                  shadowColor: appColors.primary.withValues(alpha: 0.3),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : Text(
+                        'Save Changes',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

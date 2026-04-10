@@ -19,6 +19,8 @@ class homeScreen extends StatefulWidget {
 }
 
 class _homeScreenState extends State<homeScreen> {
+  String? _previousChildId;
+
   String _greeting() {
     final h = DateTime.now().hour;
     if (h < 12) return 'Good Morning,';
@@ -30,16 +32,35 @@ class _homeScreenState extends State<homeScreen> {
   void initState() {
     super.initState();
     // Auto-load sessions so the ProgressGraphCard shows real data on launch
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSessions());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _previousChildId =
+          context.read<ProfileProvider>().currentChild?['id'] as String?;
+      _loadSessions();
+    });
   }
 
-  void _loadSessions() {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Detect child switch and re-fetch data
+    final currentChildId =
+        context.read<ProfileProvider>().currentChild?['id'] as String?;
+    if (_previousChildId != null &&
+        currentChildId != null &&
+        currentChildId != _previousChildId) {
+      _previousChildId = currentChildId;
+      _loadSessions();
+    }
+  }
+
+  Future<void> _loadSessions() async {
     final profile = context.read<ProfileProvider>();
     final childId = profile.currentChild?['id'] as String?;
     final diagnosis =
         profile.currentChild?['diagnosis_status'] as String? ?? 'pending';
     if (childId != null && childId.isNotEmpty) {
-      context
+      _previousChildId = childId;
+      await context
           .read<ProgressProvider>()
           .loadSessions(childId, diagnosisStatus: diagnosis);
     }
@@ -50,7 +71,11 @@ class _homeScreenState extends State<homeScreen> {
     final profile = context.watch<ProfileProvider>();
 
     return Scaffold(
-      body: SingleChildScrollView(
+      body: RefreshIndicator(
+        onRefresh: _loadSessions,
+        color: appColors.primary,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
         child: SafeArea(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -139,6 +164,7 @@ class _homeScreenState extends State<homeScreen> {
                                     (c) => c['id'] == id,
                                   );
                                   profile.switchChild(selected);
+                                  _loadSessions();
                                 },
                               ),
                             )
@@ -336,22 +362,79 @@ class _homeScreenState extends State<homeScreen> {
           ),
         ),
       ),
+      ),
     );
   }
 }
 
 // ── Status Card ────────────────────────────────────────────────────────────────
 
-class statusCard extends StatefulWidget {
+class statusCard extends StatelessWidget {
   const statusCard({super.key});
 
-  @override
-  State<statusCard> createState() => _statusCardState();
-}
+  String _riskLabel(String risk) {
+    switch (risk) {
+      case 'high':
+        return 'High Risk';
+      case 'medium':
+        return 'Moderate Risk';
+      case 'low':
+        return 'Low Risk';
+      default:
+        return 'Pending';
+    }
+  }
 
-class _statusCardState extends State<statusCard> {
+  Color _riskBgColor(String risk) {
+    switch (risk) {
+      case 'high':
+        return const Color(0xFFFEE2E2);
+      case 'medium':
+        return const Color(0xFFFEF3C7);
+      case 'low':
+        return const Color(0xFFD1FAE5);
+      default:
+        return const Color(0xFFF3F4F6);
+    }
+  }
+
+  Color _riskTextColor(String risk) {
+    switch (risk) {
+      case 'high':
+        return const Color(0xFFDC2626);
+      case 'medium':
+        return const Color(0xFFD97706);
+      case 'low':
+        return const Color(0xFF059669);
+      default:
+        return const Color(0xFF6B7280);
+    }
+  }
+
+  String _summaryHeadline(String risk, double? avgScore) {
+    if (avgScore == null) return 'No Data Yet';
+    if (avgScore >= 75) return 'Great Progress!';
+    if (avgScore >= 50) return 'Improving';
+    if (avgScore >= 30) return 'Needs Attention';
+    return 'Needs Support';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final progress = context.watch<ProgressProvider>();
+    final risk = progress.overallRisk;
+    final avgScore = progress.averageLatestScore;
+    final sessions = progress.allSessionsSorted;
+    // Use the latest session's ai_summary if available
+    final latestSummary = sessions.isNotEmpty
+        ? sessions.first['ai_summary'] as String?
+        : null;
+    final summaryText = latestSummary != null && latestSummary.isNotEmpty
+        ? latestSummary
+        : avgScore != null
+            ? 'Average score: ${avgScore.toStringAsFixed(0)}% across ${sessions.length} sessions. Keep going!'
+            : 'Complete your first assessment to see a personalized summary here.';
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
@@ -373,7 +456,7 @@ class _statusCardState extends State<statusCard> {
                     ),
                   ),
                   Text(
-                    'Great!!',
+                    _summaryHeadline(risk, avgScore),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Colors.black,
                       fontWeight: FontWeight.bold,
@@ -388,14 +471,15 @@ class _statusCardState extends State<statusCard> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: appColors.background,
+                  color: _riskBgColor(risk),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'Moderate Risk',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+                  _riskLabel(risk),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: _riskTextColor(risk),
+                  ),
                 ),
               ),
             ],
@@ -406,10 +490,10 @@ class _statusCardState extends State<statusCard> {
             children: [
               Expanded(
                 child: Text(
+                  summaryText,
                   softWrap: true,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
-                  'Showing great progress in assessments, 30% improvement in eye contact, next Screening due in 12 days',
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: textColors.secondary),

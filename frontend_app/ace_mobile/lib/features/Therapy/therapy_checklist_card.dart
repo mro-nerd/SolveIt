@@ -32,6 +32,16 @@ class _TherapyChecklistCardState extends State<TherapyChecklistCard> {
     _stream = _therapyService.streamAllActions(widget.childId);
   }
 
+  @override
+  void didUpdateWidget(covariant TherapyChecklistCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // When the active child changes, re-create the stream for the new child.
+    if (oldWidget.childId != widget.childId) {
+      _optimisticOverrides.clear();
+      _stream = _therapyService.streamAllActions(widget.childId);
+    }
+  }
+
   /// Returns the effective completion state, applying any optimistic override.
   bool _isCompleted(Map<String, dynamic> action) {
     final id = action['id'] as String;
