@@ -101,6 +101,58 @@ class SessionService {
     return 'low';
   }
 
+  // ── Doctor-side queries ──────────────────────────────────────────────────
+
+  /// Returns recent sessions across all patients assigned to [doctorId].
+  /// Each row includes the child's name and parent_id for display.
+  Future<List<Map<String, dynamic>>> getRecentSessionsForDoctor(
+    String doctorId, {
+    int limit = 20,
+  }) async {
+    try {
+      // Get all children assigned to this doctor
+      final children = await _db
+          .from('children')
+          .select('id, child_name, parent_id')
+          .eq('assigned_doctor_id', doctorId);
+
+      if (children.isEmpty) return [];
+
+      final childIds = (children as List)
+          .map((c) => c['id'] as String)
+          .toList();
+
+      // Build a lookup map: childId → {child_name, parent_id}
+      final childLookup = <String, Map<String, dynamic>>{};
+      for (final c in children) {
+        childLookup[c['id'] as String] = {
+          'child_name': c['child_name'],
+          'parent_id': c['parent_id'],
+        };
+      }
+
+      // Fetch recent sessions for those children
+      final sessions = await _db
+          .from('sessions')
+          .select()
+          .inFilter('child_id', childIds)
+          .order('completed_at', ascending: false)
+          .limit(limit);
+
+      // Enrich each session with child name
+      return List<Map<String, dynamic>>.from(sessions).map((s) {
+        final childInfo = childLookup[s['child_id']];
+        return {
+          ...s,
+          'child_name': childInfo?['child_name'] ?? 'Unknown',
+          'parent_id': childInfo?['parent_id'],
+        };
+      }).toList();
+    } catch (e) {
+      throw Exception('SessionService.getRecentSessionsForDoctor failed: $e');
+    }
+  }
+
   // ── Debug helpers ────────────────────────────────────────────────────────
 
   /// Quick smoke-test: saves a dummy session to verify Supabase writes work.

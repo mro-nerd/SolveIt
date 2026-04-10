@@ -41,6 +41,17 @@ class ProgressProvider extends ChangeNotifier {
   bool get hasSessions =>
       _sessionsByType.values.any((list) => list.isNotEmpty);
 
+  /// Whether at least one M-CHAT session has been completed for this child.
+  bool get hasMchatSession =>
+      (_sessionsByType['mchat'] ?? []).isNotEmpty;
+
+  /// The risk_flag from the most recent M-CHAT session, or null if none.
+  String? get latestMchatRiskFlag {
+    final mchatSessions = _sessionsByType['mchat'] ?? [];
+    if (mchatSessions.isEmpty) return null;
+    return mchatSessions.first['risk_flag'] as String?;
+  }
+
   // ── Load ─────────────────────────────────────────────────────────────────
 
   /// Loads the last 10 sessions per type for a given child.

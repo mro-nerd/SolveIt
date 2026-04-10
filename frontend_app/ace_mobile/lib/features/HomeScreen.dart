@@ -1,4 +1,6 @@
+import 'package:ace_mobile/backend/backend.dart';
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/assessment/screens/assessment_intro_screen.dart';
 import 'package:ace_mobile/features/emotion_assessment/emotion_assessment_screen.dart';
 import 'package:ace_mobile/features/eye_contact/eye_contact_screen.dart';
 import 'package:ace_mobile/features/imitation/imitation_provider.dart';
@@ -9,6 +11,7 @@ import 'package:ace_mobile/features/therapy/therapy_checklist_card.dart';
 import 'package:ace_mobile/features/progress/progress_provider.dart';
 import 'package:ace_mobile/shared/ProgressCard.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class homeScreen extends StatefulWidget {
@@ -298,63 +301,9 @@ class _homeScreenState extends State<homeScreen> {
                 ProgressGraphCard(),
                 const SizedBox(height: 20),
 
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    ' Recent Clinical Notes',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: textColors.secondary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // ── Clinical note ──────────────────────────────────────────
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 20,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(30),
-                    color: Colors.white,
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Dr. Adarsh Sen',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            'Feb 20, 2026',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: textColors.secondary.withValues(
-                                    alpha: 0.6,
-                                  ),
-                                ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        softWrap: true,
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis,
-                        'Showing great progress in assessments, 30% improvement in eye contact, next Screening due in 12 days',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: textColors.secondary,
-                        ),
-                      ),
-                    ],
-                  ),
+                // ── Clinical Notes (real data from Supabase) ──────────────
+                _ClinicalNotesSection(
+                  parentUid: profile.currentProfile?['id'] as String?,
                 ),
                 const SizedBox(height: 20),
               ],
@@ -367,7 +316,7 @@ class _homeScreenState extends State<homeScreen> {
   }
 }
 
-// ── Status Card ────────────────────────────────────────────────────────────────
+// ── Status Card (with M-CHAT gate) ─────────────────────────────────────────
 
 class statusCard extends StatelessWidget {
   const statusCard({super.key});
@@ -422,7 +371,14 @@ class statusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = context.watch<ProgressProvider>();
-    final risk = progress.overallRisk;
+
+    // ── M-CHAT gate: Show prompt if no M-CHAT session exists ────────────
+    if (!progress.hasMchatSession) {
+      return _MchatPromptCard();
+    }
+
+    // ── M-CHAT exists: show real data ───────────────────────────────────
+    final risk = progress.latestMchatRiskFlag ?? progress.overallRisk;
     final avgScore = progress.averageLatestScore;
     final sessions = progress.allSessionsSorted;
     // Use the latest session's ai_summary if available
@@ -519,6 +475,383 @@ class statusCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── M-CHAT Prompt Card ─────────────────────────────────────────────────────
+
+class _MchatPromptCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        gradient: LinearGradient(
+          colors: [
+            appColors.primary.withValues(alpha: 0.08),
+            appColors.primary.withValues(alpha: 0.03),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: appColors.primary.withValues(alpha: 0.15),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: appColors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.assignment_outlined,
+              color: appColors.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Complete the M-CHAT Screening',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.black87,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Complete the M-CHAT screening to see your child\'s summary and risk assessment here.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: textColors.secondary,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context, rootNavigator: true).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AssessmentIntroScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+              label: const Text(
+                'Start M-CHAT Screening',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: appColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Clinical Notes Section (real data) ─────────────────────────────────────
+
+class _ClinicalNotesSection extends StatefulWidget {
+  final String? parentUid;
+  const _ClinicalNotesSection({this.parentUid});
+
+  @override
+  State<_ClinicalNotesSection> createState() => _ClinicalNotesSectionState();
+}
+
+class _ClinicalNotesSectionState extends State<_ClinicalNotesSection> {
+  final ClinicalNotesService _service = ClinicalNotesService();
+  List<Map<String, dynamic>> _notes = [];
+  bool _isLoading = true;
+  bool _showAll = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotes();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ClinicalNotesSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.parentUid != widget.parentUid) {
+      _loadNotes();
+    }
+  }
+
+  Future<void> _loadNotes() async {
+    if (widget.parentUid == null || widget.parentUid!.isEmpty) {
+      setState(() {
+        _notes = [];
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final notes = await _service.getNotesForParent(widget.parentUid!);
+      if (mounted) {
+        setState(() {
+          _notes = notes;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[_ClinicalNotesSection] Error: $e');
+      if (mounted) {
+        setState(() {
+          _notes = [];
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null) return '';
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final diff = now.difference(date);
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return DateFormat('MMM d, y').format(date);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String _getDoctorName(Map<String, dynamic> note) {
+    final profiles = note['profiles'];
+    if (profiles is Map) {
+      return profiles['display_name'] as String? ?? 'Your Doctor';
+    }
+    return 'Your Doctor';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.medical_services_outlined,
+                size: 18, color: appColors.primary),
+            const SizedBox(width: 8),
+            Text(
+              'From Your Doctor',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: textColors.secondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (_isLoading)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: Colors.white,
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else if (_notes.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: Colors.white,
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.chat_bubble_outline,
+                    size: 32, color: Colors.grey.shade300),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    'No clinical notes yet.\nYour doctor\'s messages will appear here.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: textColors.secondary.withValues(alpha: 0.6),
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else ...[
+          // Most recent note — prominently displayed
+          _ClinicalNoteCard(
+            note: _notes.first,
+            doctorName: _getDoctorName(_notes.first),
+            dateText: _formatDate(_notes.first['created_at'] as String?),
+            isLatest: true,
+          ),
+
+          // Older notes
+          if (_notes.length > 1) ...[
+            const SizedBox(height: 8),
+            if (_showAll)
+              ..._notes.skip(1).map((note) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _ClinicalNoteCard(
+                  note: note,
+                  doctorName: _getDoctorName(note),
+                  dateText: _formatDate(note['created_at'] as String?),
+                  isLatest: false,
+                ),
+              ))
+            else if (_notes.length > 1)
+              GestureDetector(
+                onTap: () => setState(() => _showAll = true),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.white,
+                  ),
+                  child: Center(
+                    child: Text(
+                      'View ${_notes.length - 1} older note${_notes.length - 1 > 1 ? 's' : ''}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: appColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+class _ClinicalNoteCard extends StatelessWidget {
+  final Map<String, dynamic> note;
+  final String doctorName;
+  final String dateText;
+  final bool isLatest;
+
+  const _ClinicalNoteCard({
+    required this.note,
+    required this.doctorName,
+    required this.dateText,
+    required this.isLatest,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final message = note['message'] as String? ?? '';
+    final targetType = note['target_type'] as String? ?? 'all';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(isLatest ? 24 : 16),
+        color: Colors.white,
+        border: isLatest
+            ? Border.all(
+                color: appColors.primary.withValues(alpha: 0.15),
+                width: 1,
+              )
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (isLatest) ...[
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: appColors.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.medical_services,
+                      size: 14, color: appColors.primary),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                doctorName,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (targetType == 'all') ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Broadcast',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.blue.shade700,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ],
+              const Spacer(),
+              Text(
+                dateText,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: textColors.secondary.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            softWrap: true,
+            maxLines: isLatest ? 6 : 3,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: textColors.secondary,
+              height: 1.5,
+            ),
           ),
         ],
       ),
