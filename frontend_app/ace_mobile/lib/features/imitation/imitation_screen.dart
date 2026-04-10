@@ -25,12 +25,15 @@ class _ImitationScreenState extends State<ImitationScreen> {
 
   /// Triggered when sessionComplete becomes true — saves to Supabase.
   void _triggerSave(ImitationProvider provider) {
-    final childId = context.read<ProfileProvider>().currentChild?['id'] as String? ?? '';
+    final childId =
+        context.read<ProfileProvider>().currentChild?['id'] as String? ?? '';
     debugPrint('[ImitationScreen] Triggering save: childId=$childId');
     if (childId.isNotEmpty) {
       provider.saveSessionForChild(childId);
     } else {
-      debugPrint('[ImitationScreen] ERROR: currentChild is null — cannot save session');
+      debugPrint(
+        '[ImitationScreen] ERROR: currentChild is null — cannot save session',
+      );
     }
   }
 
@@ -74,7 +77,7 @@ class _ImitationScreenState extends State<ImitationScreen> {
     );
   }
 
-  // ─── Active game ──────────────────────────────────────────────────────
+  // Active game
 
   Widget _buildGameScreen(ImitationProvider provider) {
     final pose = provider.currentPose;
@@ -114,8 +117,10 @@ class _ImitationScreenState extends State<ImitationScreen> {
               const Spacer(),
               // Best match badge
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.amber.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
@@ -166,7 +171,8 @@ class _ImitationScreenState extends State<ImitationScreen> {
           alignment: Alignment.centerLeft,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            width: MediaQuery.of(context).size.width *
+            width:
+                MediaQuery.of(context).size.width *
                 (provider.currentMatchPercent / 100).clamp(0.0, 1.0),
             height: 6,
             decoration: BoxDecoration(
@@ -174,8 +180,8 @@ class _ImitationScreenState extends State<ImitationScreen> {
                 colors: provider.currentMatchPercent >= 70
                     ? [Colors.green, Colors.greenAccent]
                     : provider.currentMatchPercent >= 40
-                        ? [Colors.orange, Colors.amber]
-                        : [Colors.red.shade300, Colors.red],
+                    ? [Colors.orange, Colors.amber]
+                    : [Colors.red.shade300, Colors.red],
               ),
             ),
           ),
@@ -228,8 +234,10 @@ class _ImitationScreenState extends State<ImitationScreen> {
                 onError: _handleError,
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(16),
@@ -261,10 +269,7 @@ class _ImitationScreenState extends State<ImitationScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            pose?.emoji ?? '',
-            style: const TextStyle(fontSize: 64),
-          ),
+          Text(pose?.emoji ?? '', style: const TextStyle(fontSize: 64)),
           const SizedBox(height: 16),
           Text(
             pose?.name ?? '',
@@ -277,10 +282,7 @@ class _ImitationScreenState extends State<ImitationScreen> {
           const SizedBox(height: 8),
           Text(
             pose?.instruction ?? '',
-            style: const TextStyle(
-              fontSize: 16,
-              color: Color(0xFF718096),
-            ),
+            style: const TextStyle(fontSize: 16, color: Color(0xFF718096)),
           ),
           const SizedBox(height: 40),
           // Big countdown number
@@ -310,7 +312,9 @@ class _ImitationScreenState extends State<ImitationScreen> {
   Widget _buildResultsScreen(ImitationProvider provider) {
     // Trigger save once (provider guard prevents double-saves)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (provider.sessionComplete && !provider.sessionSaved && !provider.isSaving) {
+      if (provider.sessionComplete &&
+          !provider.sessionSaved &&
+          !provider.isSaving) {
         _triggerSave(provider);
       }
     });
@@ -318,20 +322,20 @@ class _ImitationScreenState extends State<ImitationScreen> {
     final totalPoses = provider.poses.length;
     final overallPercent = provider.poseResults.isNotEmpty
         ? (provider.poseResults
-                    .map((r) => r.finalScore)
-                    .reduce((a, b) => a + b) /
-                provider.poseResults.length)
-            .toInt()
+                      .map((r) => r.finalScore)
+                      .reduce((a, b) => a + b) /
+                  provider.poseResults.length)
+              .toInt()
         : 0;
 
     // Stars based on overall percentage
     final starCount = overallPercent >= 80
         ? 3
         : overallPercent >= 50
-            ? 2
-            : overallPercent >= 25
-                ? 1
-                : 0;
+        ? 2
+        : overallPercent >= 25
+        ? 1
+        : 0;
     final stars = List.generate(
       starCount,
       (_) => const Text('⭐', style: TextStyle(fontSize: 40)),
@@ -365,8 +369,8 @@ class _ImitationScreenState extends State<ImitationScreen> {
                   colors: overallPercent >= 60
                       ? [Colors.green.shade400, Colors.green.shade700]
                       : overallPercent >= 30
-                          ? [Colors.orange.shade400, Colors.orange.shade700]
-                          : [Colors.red.shade300, Colors.red.shade600],
+                      ? [Colors.orange.shade400, Colors.orange.shade700]
+                      : [Colors.red.shade300, Colors.red.shade600],
                 ),
               ),
               child: Center(
@@ -392,8 +396,10 @@ class _ImitationScreenState extends State<ImitationScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: stars.isEmpty
                   ? [
-                      const Text('Keep practising! 💪',
-                          style: TextStyle(fontSize: 18))
+                      const Text(
+                        'Keep practising! 💪',
+                        style: TextStyle(fontSize: 18),
+                      ),
                     ]
                   : stars,
             ),
@@ -409,8 +415,8 @@ class _ImitationScreenState extends State<ImitationScreen> {
               final scoreColor = result.finalScore >= 70
                   ? Colors.green
                   : result.finalScore >= 40
-                      ? Colors.orange
-                      : Colors.red;
+                  ? Colors.orange
+                  : Colors.red;
               return Container(
                 margin: const EdgeInsets.symmetric(vertical: 5),
                 padding: const EdgeInsets.all(14),
@@ -421,8 +427,10 @@ class _ImitationScreenState extends State<ImitationScreen> {
                 ),
                 child: Row(
                   children: [
-                    Text(result.pose.emoji,
-                        style: const TextStyle(fontSize: 28)),
+                    Text(
+                      result.pose.emoji,
+                      style: const TextStyle(fontSize: 28),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -536,9 +544,19 @@ class _ImitationSaveStatus extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6C63FF))),
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFF6C63FF),
+            ),
+          ),
           SizedBox(width: 8),
-          Text('Saving session…', style: TextStyle(fontSize: 13, color: Color(0xFF6C63FF))),
+          Text(
+            'Saving session…',
+            style: TextStyle(fontSize: 13, color: Color(0xFF6C63FF)),
+          ),
         ],
       );
     }
@@ -549,7 +567,14 @@ class _ImitationSaveStatus extends StatelessWidget {
         children: [
           Icon(Icons.check_circle_rounded, size: 16, color: Colors.green),
           SizedBox(width: 6),
-          Text('Session saved ✓', style: TextStyle(fontSize: 13, color: Colors.green, fontWeight: FontWeight.w600)),
+          Text(
+            'Session saved ✓',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.green,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       );
     }

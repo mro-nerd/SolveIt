@@ -220,176 +220,178 @@ class _DoctorTherapyPlanScreenState extends State<DoctorTherapyPlanScreen> {
                 24,
                 MediaQuery.of(ctx).viewInsets.bottom + 24,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Handle bar
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Add Therapy Action',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF111827),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Title
-                  _SheetField(
-                    label: 'Title *',
-                    controller: titleCtrl,
-                    hint: 'e.g. Eye contact exercise',
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Description
-                  _SheetField(
-                    label: 'Description',
-                    controller: descCtrl,
-                    hint: 'Optional details...',
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Due date
-                  Text(
-                    'Due Date',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF6B7280),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  GestureDetector(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: ctx,
-                        initialDate: selectedDate,
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                        builder: (c, child) => Theme(
-                          data: Theme.of(c).copyWith(
-                            colorScheme: ColorScheme.light(
-                              primary: appColors.primary,
-                            ),
-                          ),
-                          child: child!,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Handle bar
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
                         ),
-                      );
-                      if (picked != null) {
-                        setSheetState(() => selectedDate = picked);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today_rounded,
-                            size: 18,
-                            color: appColors.primary,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            DateFormat('MMM d, yyyy').format(selectedDate),
-                            style: GoogleFonts.poppins(fontSize: 14),
-                          ),
-                          const Spacer(),
-                          Icon(
-                            Icons.keyboard_arrow_down,
-                            color: Colors.grey.shade400,
-                          ),
-                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Add Therapy Action',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF111827),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
 
-                  // Save button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: isSavingAction || titleCtrl.text.trim().isEmpty
-                          ? null
-                          : () async {
-                              if (titleCtrl.text.trim().isEmpty) return;
-                              if (_planId == null) {
-                                Navigator.pop(ctx);
-                                _showError(
-                                  'Please save the plan first before adding actions.',
-                                );
-                                return;
-                              }
+                    // Title
+                    _SheetField(
+                      label: 'Title *',
+                      controller: titleCtrl,
+                      hint: 'e.g. Eye contact exercise',
+                    ),
+                    const SizedBox(height: 14),
 
-                              setSheetState(() => isSavingAction = true);
-                              try {
-                                await _therapyService.upsertAction(
-                                  planId: _planId!,
-                                  title: titleCtrl.text.trim(),
-                                  description: descCtrl.text.trim().isEmpty
-                                      ? null
-                                      : descCtrl.text.trim(),
-                                  dueDate: selectedDate,
-                                );
-                                if (mounted) {
+                    // Description
+                    _SheetField(
+                      label: 'Description',
+                      controller: descCtrl,
+                      hint: 'Optional details...',
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Due date
+                    Text(
+                      'Due Date',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: selectedDate,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          builder: (c, child) => Theme(
+                            data: Theme.of(c).copyWith(
+                              colorScheme: ColorScheme.light(
+                                primary: appColors.primary,
+                              ),
+                            ),
+                            child: child!,
+                          ),
+                        );
+                        if (picked != null) {
+                          setSheetState(() => selectedDate = picked);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              size: 18,
+                              color: appColors.primary,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              DateFormat('MMM d, yyyy').format(selectedDate),
+                              style: GoogleFonts.poppins(fontSize: 14),
+                            ),
+                            const Spacer(),
+                            Icon(
+                              Icons.keyboard_arrow_down,
+                              color: Colors.grey.shade400,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Save button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isSavingAction || titleCtrl.text.trim().isEmpty
+                            ? null
+                            : () async {
+                                if (titleCtrl.text.trim().isEmpty) return;
+                                if (_planId == null) {
                                   Navigator.pop(ctx);
-                                  _loadPlan(); // Refresh
+                                  _showError(
+                                    'Please save the plan first before adding actions.',
+                                  );
+                                  return;
                                 }
-                              } catch (e) {
-                                setSheetState(() => isSavingAction = false);
-                                debugPrint(
-                                  '[TherapyPlanScreen] Add action error: $e',
-                                );
-                              }
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: appColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+
+                                setSheetState(() => isSavingAction = true);
+                                try {
+                                  await _therapyService.upsertAction(
+                                    planId: _planId!,
+                                    title: titleCtrl.text.trim(),
+                                    description: descCtrl.text.trim().isEmpty
+                                        ? null
+                                        : descCtrl.text.trim(),
+                                    dueDate: selectedDate,
+                                  );
+                                  if (mounted) {
+                                    Navigator.pop(ctx);
+                                    _loadPlan(); // Refresh
+                                  }
+                                } catch (e) {
+                                  setSheetState(() => isSavingAction = false);
+                                  debugPrint(
+                                    '[TherapyPlanScreen] Add action error: $e',
+                                  );
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: appColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          disabledBackgroundColor: Colors.grey.shade300,
                         ),
-                        disabledBackgroundColor: Colors.grey.shade300,
+                        child: isSavingAction
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                'Add Action',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
                       ),
-                      child: isSavingAction
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(
-                              'Add Action',
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },

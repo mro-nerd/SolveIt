@@ -581,15 +581,18 @@ class _RiskSummaryRow extends StatelessWidget {
         children: [
           Icon(Icons.shield_outlined, color: _color, size: 20),
           const SizedBox(width: 10),
-          Text(
-            'Clinical Score: $score/20 · $level',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: _color,
+          Flexible(
+            child: Text(
+              'Clinical Score: $score/20 · $level',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: _color,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           Text(
             '(unmodified by AI)',
             style: TextStyle(

@@ -316,115 +316,128 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
               position: _slideAnim,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 60),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 60),
 
-                    // ── Icon ──
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: appColors.primary.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.people_alt_rounded,
-                        size: 40,
-                        color: appColors.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // ── Title ──
-                    Text(
-                      'Who are you?',
-                      style: GoogleFonts.poppins(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF111827),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Choose your role to personalize\nyour experience',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        color: const Color(0xFF6B7280),
-                        height: 1.5,
-                      ),
-                    ),
-
-                    const SizedBox(height: 48),
-
-                    // ── Role Cards ──
-                    _RoleCard(
-                      title: 'I\'m a Parent',
-                      subtitle:
-                          'Track your child\'s development\nand get personalized guidance',
-                      icon: Icons.family_restroom_rounded,
-                      iconColor: const Color(0xFF7C3AED),
-                      iconBg: const Color(0xFFEDE9FE),
-                      isSelected: _selectedRole == 'parent',
-                      isDisabled: _isSaving,
-                      onTap: () => _selectRole('parent'),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    _RoleCard(
-                      title: 'I\'m a Doctor',
-                      subtitle:
-                          'Manage patients, therapy plans\nand track developmental progress',
-                      icon: Icons.medical_services_rounded,
-                      iconColor: const Color(0xFF0284C7),
-                      iconBg: const Color(0xFFE0F2FE),
-                      isSelected: _selectedRole == 'doctor',
-                      isDisabled: _isSaving,
-                      onTap: () => _selectRole('doctor'),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // ── Loading indicator while saving ──
-                    if (_isSaving)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Setting up your profile…',
-                              style: GoogleFonts.poppins(
-                                color: const Color(0xFF6B7280),
-                                fontSize: 13,
+                              // ── Icon ──
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: appColors.primary.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.people_alt_rounded,
+                                  size: 40,
+                                  color: appColors.primary,
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 32),
+
+                              // ── Title ──
+                              Text(
+                                'Who are you?',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF111827),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Choose your role to personalize\nyour experience',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  color: const Color(0xFF6B7280),
+                                  height: 1.5,
+                                ),
+                              ),
+
+                              const SizedBox(height: 48),
+
+                              // ── Role Cards ──
+                              _RoleCard(
+                                title: 'I\'m a Parent',
+                                subtitle:
+                                    'Track your child\'s development\nand get personalized guidance',
+                                icon: Icons.family_restroom_rounded,
+                                iconColor: const Color(0xFF7C3AED),
+                                iconBg: const Color(0xFFEDE9FE),
+                                isSelected: _selectedRole == 'parent',
+                                isDisabled: _isSaving,
+                                onTap: () => _selectRole('parent'),
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              _RoleCard(
+                                title: 'I\'m a Doctor',
+                                subtitle:
+                                    'Manage patients, therapy plans\nand track developmental progress',
+                                icon: Icons.medical_services_rounded,
+                                iconColor: const Color(0xFF0284C7),
+                                iconBg: const Color(0xFFE0F2FE),
+                                isSelected: _selectedRole == 'doctor',
+                                isDisabled: _isSaving,
+                                onTap: () => _selectRole('doctor'),
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // ── Loading indicator while saving ──
+                              if (_isSaving)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        'Setting up your profile…',
+                                        style: GoogleFonts.poppins(
+                                          color: const Color(0xFF6B7280),
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                              const Spacer(),
+
+                              // ── Footer ──
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 32),
+                                child: Text(
+                                  'You can change this later in Settings',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: const Color(0xFF9CA3AF),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-
-                    const Spacer(),
-
-                    // ── Footer ──
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 32),
-                      child: Text(
-                        'You can change this later in Settings',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: const Color(0xFF9CA3AF),
-                        ),
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             ),
