@@ -14,11 +14,11 @@ This document provides a detailed walkthrough of the ACE Mobile user experience,
 ### 🟡 Onboarding Walkthrough
 - **Logic**: A multi-page introduction for new users detailing features and value propositions. Sets a persistent flag (`onboarding_done`) upon completion.
 - **Visuals**: High-quality informative cards and descriptive imagery.
-![Onboarding 1](docs/screenshots/onboarding_screen.jpeg)
+![Onboarding 1](docs/screenshots/onboarding_screen3.jpeg)
 ![Onboarding 2](docs/screenshots/onboarding_screen0.jpeg)
 ![Onboarding 3](docs/screenshots/onboarding_screen1.jpeg)
 ![Onboarding 4](docs/screenshots/onboarding_screen2.jpeg)
-![Onboarding 5](docs/screenshots/onboarding_screen3.jpeg)
+![Onboarding 5](docs/screenshots/onboarding_screen.jpeg)
 
 ---
 
@@ -27,8 +27,8 @@ This document provides a detailed walkthrough of the ACE Mobile user experience,
 ### 👨‍👩‍👧 Parent Home Screen
 - **Logic**: Dynamic state-driven greeting and daily goal tracker. Fetches child profile data and quick access to tools.
 - **Visuals**: Clean card-based layout with quick action buttons for assessments.
-![Parent Dashboard 1](docs/screenshots/home_screen.jpeg)
-![Parent Dashboard 2](docs/screenshots/home_screen1.jpeg)
+![Parent Dashboard 1](docs/screenshots/home_screen1.jpeg)
+![Parent Dashboard 2](docs/screenshots/home_screen.jpeg)
 
 ### 👨‍⚕️ Doctor Dashboard
 - **Logic**: Dashboard for medical professionals to monitor patient progress, review screening results, and manage linked patients.
