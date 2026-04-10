@@ -6,7 +6,6 @@
 
   <p>
     <img src="https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white" alt="Flutter" />
-    <img src="https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white" alt="Firebase" />
     <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=Supabase&logoColor=white" alt="Supabase" />
     <img src="https://img.shields.io/badge/TensorFlow-FF6F00?style=for-the-badge&logo=TensorFlow&logoColor=white" alt="TensorFlow" />
     <img src="https://img.shields.io/badge/Google%20ML%20Kit-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google ML Kit" />
@@ -59,6 +58,7 @@ The ACE ecosystem is divided into distinct, role-based experiences powered by ad
 ### 📈 5. Progress Tracking
 *   **Progress Dashboard**: Parents can view a historical log of all completed assessments and games.
 *   **Secure Cloud Sync**: Game scores, behavioral metrics, and LLM-generated summaries are synchronized in real-time to Supabase (`sessions` table) with strict matching via unique parent-child constraints.
+*   **Relational Architecture**: View our [Database Schema](docs/DATABASE_SCHEMA.md) for details on how `profiles`, `children`, `sessions`, `therapy_plans`, and `therapy_actions` interact.
 
 ---
 
@@ -68,13 +68,13 @@ ACE Mobile uses a robust routing architecture initialized in `main.dart`, handli
 
 ### Onboarding Flow
 1.  **Splash Screen (`/splash`)**: A visually rich, animated entry point featuring drifting glow orbs, a particle field, and a segmented loading bar. Behind the scenes, it pre-loads `ProfileProvider` data from SharedPreferences.
-2.  **Authentication (`/login`)**: Email/Password and Google Sign-In powered by Firebase Auth.
+2.  **Authentication (`/login`)**: Email/Password and Google Sign-In powered by Supabase Auth (`AuthService`).
 3.  **Role Selection (`/role_selection`)**: First-time users declare their role (Parent/Caregiver vs. Doctor/Therapist).
 
 ### Parent / Caregiver Flow
 1.  **Home Dashboard**: The central hub. Displays a "Good Morning, [Name]" header, today's specific goals, and quick-launch buttons for the child's daily exercises.
 2.  **Therapy Tab**: Access to the meltdown predictor, heart rate monitor widget, and grounding exercises.
-3.  **Assessments**: Launch the M-CHAT AI, Eye Contact game, or Imitation game. Results are pushed to Firestore for the doctor to review.
+3.  **Assessments**: Launch the M-CHAT AI, Eye Contact game, or Imitation game. Results are pushed to Supabase for the doctor to review.
 4.  **Community**: A forum view for parents to connect, share victories, and seek peer support.
 
 ### Doctor / Professional Flow
@@ -126,7 +126,7 @@ ace_mobile/
     │       ├── patient_detail_screen.dart
     │       └── doctor_therapy_plan_screen.dart 
     │
-    └── main.dart           # Entry point: Firebase init, Provider injection, Theme setup
+    └── main.dart           # Entry point: Supabase init, Provider injection, Theme setup
 ```
 
 ---
@@ -135,7 +135,7 @@ ace_mobile/
 
 *   **Framework:** Flutter (Dart, SDK ^3.11.0)
 *   **State Management:** `provider: ^6.1.2`
-*   **Backend Services:** Firebase Core & Auth (`firebase_core`, `firebase_auth`), Google Sign-In
+*   **Backend Services:** Supabase Auth & Database (`supabase_flutter`), Google Sign-In
 *   **Machine Learning (Edge computing):**
     *   `google_mlkit_face_detection: ^0.13.2` — 46 facial landmark tracking, eye open probabilities, smile probabilities.
     *   `tflite_flutter: ^0.11.0` — Running the MoveNet single-pose lightning model natively via Android NNAPI / iOS CoreML delegates for 30+ fps pose tracking.

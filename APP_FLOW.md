@@ -12,7 +12,7 @@ This document provides a detailed walkthrough of the ACE Mobile user experience,
 ![Splash Screen](docs/screenshots/splash.png)
 
 ### 🔵 Authentication
-- **Logic**: Secure gateway using Firebase Auth. Supports Email/Password and Google Sign-In via `AuthWrapper`.
+- **Logic**: Secure gateway using Supabase Auth. Supports Email/Password and Google Sign-In via `AuthService`.
 - **Visuals**: Professional login screen with high-quality background imagery.
 ![Login Screen](docs/screenshots/login.png)
 
