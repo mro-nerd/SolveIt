@@ -15,6 +15,9 @@ erDiagram
     
     therapy_plans ||--o{ therapy_actions : "contains"
 
+    profiles ||--o{ clinical_notes : "sends (doctor_id)"
+    profiles ||--o{ clinical_notes : "receives (target_parent_uid)"
+
     profiles {
         uuid id PK
         text display_name
@@ -65,6 +68,15 @@ erDiagram
         date due_date
         timestamptz completed_at
     }
+
+    clinical_notes {
+        uuid id PK
+        uuid doctor_id FK
+        text target_type " 'all' or 'specific' "
+        uuid target_parent_uid FK
+        text message
+        timestamptz created_at
+    }
 ```
 
 ## Schema Details
@@ -93,3 +105,11 @@ A prescribed sequence of actions created by a doctor for a specific child.
 Individual tasks/exercises associated with a `therapy_plan`.
 - Examples include "Complete Eye Contact Module for 30s" or "Daily Grounding Exercise".
 - Tracked via `is_completed` and synced instantly to the parent's home screen.
+
+### `clinical_notes`
+Doctor-to-parent messaging system for clinical notes and updates.
+- **`doctor_id`**: The doctor who authored the note.
+- **`target_type`**: `'all'` for broadcast to all patients, `'specific'` for a single parent.
+- **`target_parent_uid`**: When `target_type` is `'specific'`, references the parent's profile UID. Notes are linked to the **parent** (not child) so one note covers all children under that parent.
+- **`message`**: The clinical note body text.
+- **`created_at`**: Timestamp of when the note was created.

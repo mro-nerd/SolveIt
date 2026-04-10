@@ -4,13 +4,24 @@ import 'package:ace_mobile/backend/backend.dart';
 
 class DoctorDashboardProvider extends ChangeNotifier {
   final ChildService _childService;
+  final SessionService _sessionService;
 
-  DoctorDashboardProvider({ChildService? childService})
-      : _childService = childService ?? ChildService();
+  DoctorDashboardProvider({
+    ChildService? childService,
+    SessionService? sessionService,
+  })  : _childService = childService ?? ChildService(),
+        _sessionService = sessionService ?? SessionService();
 
   List<Map<String, dynamic>> patients = [];
   bool isLoading = false;
   String? error;
+
+  // ── Activity feed ───────────────────────────────────────────────────────
+  List<Map<String, dynamic>> _activityFeed = [];
+  bool _isLoadingFeed = false;
+
+  List<Map<String, dynamic>> get activityFeed => _activityFeed;
+  bool get isLoadingFeed => _isLoadingFeed;
 
   // ── Realtime stream subscription ────────────────────────────────────────
   StreamSubscription<List<Map<String, dynamic>>>? _therapyStreamSub;
@@ -70,6 +81,22 @@ class DoctorDashboardProvider extends ChangeNotifier {
     return count;
   }
 
+  /// Assessments completed this week across all activity feed entries.
+  int get assessmentsThisWeek {
+    final now = DateTime.now();
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    final weekStartStr = weekStart.toIso8601String().split('T').first;
+    int count = 0;
+    for (final session in _activityFeed) {
+      final completedAt = session['completed_at'] as String?;
+      if (completedAt != null) {
+        final dateStr = completedAt.split('T').first;
+        if (dateStr.compareTo(weekStartStr) >= 0) count++;
+      }
+    }
+    return count;
+  }
+
   /// Top 3 most recently active patients (sorted by latest session date).
   List<Map<String, dynamic>> get recentPatients {
     final withSessions =
@@ -107,12 +134,41 @@ class DoctorDashboardProvider extends ChangeNotifier {
       });
 
       patients = data;
+
+      // Also load activity feed
+      await _loadActivityFeed(doctorId);
     } catch (e) {
       error = e.toString();
     } finally {
       isLoading = false;
       notifyListeners();
     }
+  }
+
+  // ── Activity feed ───────────────────────────────────────────────────────
+
+  Future<void> _loadActivityFeed(String doctorId) async {
+    _isLoadingFeed = true;
+
+    try {
+      _activityFeed = await _sessionService.getRecentSessionsForDoctor(
+        doctorId,
+        limit: 30,
+      );
+    } catch (e) {
+      debugPrint('[DoctorDashboardProvider] Activity feed error: $e');
+      _activityFeed = [];
+    } finally {
+      _isLoadingFeed = false;
+    }
+  }
+
+  /// Refresh activity feed independently (e.g. on pull-to-refresh).
+  Future<void> refreshActivityFeed(String doctorId) async {
+    _isLoadingFeed = true;
+    notifyListeners();
+    await _loadActivityFeed(doctorId);
+    notifyListeners();
   }
 
   // ── Realtime therapy actions listener ────────────────────────────────────

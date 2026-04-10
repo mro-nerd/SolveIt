@@ -1,5 +1,6 @@
 import 'package:ace_mobile/backend/backend.dart';
 import 'package:ace_mobile/core/constants.dart';
+import 'package:ace_mobile/features/doctor/clinical_notes_provider.dart';
 import 'package:ace_mobile/features/doctor/doctor_bottom_navbar.dart';
 import 'package:ace_mobile/features/doctor/doctor_dashboard_provider.dart';
 import 'package:ace_mobile/features/doctor/screens/patient_detail_screen.dart';
@@ -14,8 +15,11 @@ class DoctorDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => DoctorDashboardProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => DoctorDashboardProvider()),
+        ChangeNotifierProvider(create: (_) => ClinicalNotesProvider()),
+      ],
       child: const _DoctorDashboardView(),
     );
   }
@@ -35,18 +39,17 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final profile = context.read<ProfileProvider>().currentProfile;
       if (profile != null && profile['id'] != null) {
+        final doctorId = profile['id'] as String;
         final provider = context.read<DoctorDashboardProvider>();
-        provider.loadPatients(profile['id']);
+        provider.loadPatients(doctorId);
         provider.startListening();
+
+        // Load clinical notes data
+        final notesProvider = context.read<ClinicalNotesProvider>();
+        notesProvider.loadParentList(doctorId);
+        notesProvider.loadSentNotes(doctorId);
       }
     });
-  }
-
-  @override
-  void dispose() {
-    // Provider is scoped to this widget tree via ChangeNotifierProvider,
-    // so its own dispose() handles stream cleanup.
-    super.dispose();
   }
 
   void _showAddPatientBottomSheet() {
@@ -103,13 +106,15 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
           ),
         ],
       ),
-      body: Consumer<DoctorDashboardProvider>(
-        builder: (context, provider, _) {
+      body: Consumer2<DoctorDashboardProvider, ClinicalNotesProvider>(
+        builder: (context, provider, notesProvider, _) {
           return RefreshIndicator(
             onRefresh: () async {
               final profile = context.read<ProfileProvider>().currentProfile;
               if (profile != null && profile['id'] != null) {
-                await provider.loadPatients(profile['id']);
+                final doctorId = profile['id'] as String;
+                await provider.loadPatients(doctorId);
+                await notesProvider.loadSentNotes(doctorId);
               }
             },
             child: SingleChildScrollView(
@@ -119,29 +124,13 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Summary Stat Cards ────────────────────────────────
-                    Row(
-                      children: [
-                        _SummaryChip(
-                          title: 'Total Patients',
-                          value: '${provider.totalPatients}',
-                          color: Colors.blue,
-                        ),
-                        const SizedBox(width: 8),
-                        _SummaryChip(
-                          title: 'Sessions Today',
-                          value: '${provider.sessionsToday}',
-                          color: Colors.green,
-                        ),
-                        const SizedBox(width: 8),
-                        _SummaryChip(
-                          title: 'High Risk',
-                          value: '${provider.highRiskThisWeek}',
-                          color: Colors.red,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
+                    // ── Quick Stats ─────────────────────────────────────
+                    _QuickStatsGrid(provider: provider),
+                    const SizedBox(height: 24),
+
+                    // ── Clinical Note Composer ──────────────────────────
+                    _NoteComposerCard(notesProvider: notesProvider),
+                    const SizedBox(height: 24),
 
                     if (provider.isLoading)
                       const _LoadingSkeletons()
@@ -153,32 +142,13 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
                         ),
                       )
                     else if (provider.patients.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 40),
-                          child: Column(
-                            children: [
-                              Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
-                              const SizedBox(height: 16),
-                              Text(
-                                "No patients linked yet",
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "Ask a parent for their child's join code to get started",
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.poppins(color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
+                      _EmptyPatientsState()
                     else ...[
-                      // ── Recent Patients section ────────────────────────
+                      // ── Patient Activity Feed ─────────────────────────
+                      _ActivityFeedSection(provider: provider),
+                      const SizedBox(height: 24),
+
+                      // ── Recent Patients ───────────────────────────────
                       Text(
                         'Recent Patients',
                         style: GoogleFonts.poppins(
@@ -196,7 +166,7 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
                       ),
                       const SizedBox(height: 8),
 
-                      // ── View All Patients → ────────────────────────────
+                      // ── View All Patients → ───────────────────────────
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
@@ -231,14 +201,70 @@ class _DoctorDashboardViewState extends State<_DoctorDashboardView> {
   }
 }
 
-class _SummaryChip extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Quick Stats Grid — 4 stat chips
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _QuickStatsGrid extends StatelessWidget {
+  final DoctorDashboardProvider provider;
+  const _QuickStatsGrid({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            _StatChip(
+              title: 'Total Patients',
+              value: '${provider.totalPatients}',
+              icon: Icons.people_rounded,
+              color: Colors.blue,
+            ),
+            const SizedBox(width: 10),
+            _StatChip(
+              title: 'This Week',
+              value: '${provider.assessmentsThisWeek}',
+              icon: Icons.assignment_turned_in_rounded,
+              color: Colors.green,
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _StatChip(
+              title: 'High Risk',
+              value: '${provider.highRiskCount}',
+              icon: Icons.warning_rounded,
+              color: Colors.red,
+            ),
+            const SizedBox(width: 10),
+            _StatChip(
+              title: 'Avg Score',
+              value: provider.avgLastScore > 0
+                  ? '${provider.avgLastScore.toStringAsFixed(0)}%'
+                  : '—',
+              icon: Icons.analytics_rounded,
+              color: Colors.purple,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
   final String title;
   final String value;
+  final IconData icon;
   final Color color;
 
-  const _SummaryChip({
+  const _StatChip({
     required this.title,
     required this.value,
+    required this.icon,
     required this.color,
   });
 
@@ -246,30 +272,680 @@ class _SummaryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Column(
+        child: Row(
           children: [
-            Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 20, color: color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF111827),
+                    ),
+                  ),
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                color: color.withValues(alpha: 0.8),
-                fontWeight: FontWeight.w500,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Clinical Note Composer
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _NoteComposerCard extends StatefulWidget {
+  final ClinicalNotesProvider notesProvider;
+  const _NoteComposerCard({required this.notesProvider});
+
+  @override
+  State<_NoteComposerCard> createState() => _NoteComposerCardState();
+}
+
+class _NoteComposerCardState extends State<_NoteComposerCard> {
+  final _messageController = TextEditingController();
+  bool _isExpanded = false;
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final np = widget.notesProvider;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: appColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.edit_note_rounded,
+                        size: 20, color: appColors.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Clinical Notes',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF111827),
+                          ),
+                        ),
+                        Text(
+                          'Send notes to patients',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: _isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: Colors.grey),
+                  ),
+                ],
               ),
+            ),
+          ),
+
+          // Expandable composer body
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+
+                  // Target type toggle
+                  Row(
+                    children: [
+                      _TargetToggle(
+                        label: 'All Patients',
+                        isSelected: np.targetType == 'all',
+                        onTap: () => np.setTargetType('all'),
+                      ),
+                      const SizedBox(width: 8),
+                      _TargetToggle(
+                        label: 'Specific Patient',
+                        isSelected: np.targetType == 'specific',
+                        onTap: () => np.setTargetType('specific'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Parent dropdown (specific only)
+                  if (np.targetType == 'specific') ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: np.selectedParentUid,
+                          isExpanded: true,
+                          hint: Text(
+                            'Select patient\'s parent',
+                            style: GoogleFonts.poppins(
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
+                          ),
+                          items: np.parentList.map((parent) {
+                            final childNames =
+                                (parent['child_names'] as List)
+                                    .join(', ');
+                            return DropdownMenuItem<String>(
+                              value: parent['parent_id'] as String,
+                              child: Text(
+                                '${parent['parent_name']} ($childNames)',
+                                style: GoogleFonts.poppins(fontSize: 14),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) => np.setSelectedParent(val),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Message text field
+                  TextField(
+                    controller: _messageController,
+                    maxLines: 3,
+                    style: GoogleFonts.poppins(fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Write your clinical note...',
+                      hintStyle: GoogleFonts.poppins(
+                        color: Colors.grey.shade400,
+                        fontSize: 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: appColors.primary),
+                      ),
+                      contentPadding: const EdgeInsets.all(14),
+                    ),
+                    onChanged: (val) => np.setMessageText(val),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Error / success feedback
+                  if (np.sendError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        np.sendError!,
+                        style: GoogleFonts.poppins(
+                          color: Colors.red,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  if (np.sendSuccess)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle,
+                              size: 16, color: Colors.green),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Note sent successfully!',
+                            style: GoogleFonts.poppins(
+                              color: Colors.green.shade700,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Send button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: np.isSending
+                          ? null
+                          : () {
+                              final profile = context
+                                  .read<ProfileProvider>()
+                                  .currentProfile;
+                              if (profile != null) {
+                                np.setMessageText(_messageController.text);
+                                np.sendNote(profile['id']).then((_) {
+                                  if (np.sendSuccess) {
+                                    _messageController.clear();
+                                  }
+                                });
+                              }
+                            },
+                      icon: np.isSending
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.send_rounded, size: 18),
+                      label: Text(
+                        np.isSending ? 'Sending...' : 'Send Note',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: appColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            crossFadeState: _isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 250),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TargetToggle extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _TargetToggle({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? appColors.primary.withValues(alpha: 0.1)
+                : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected
+                  ? appColors.primary.withValues(alpha: 0.4)
+                  : Colors.grey.shade300,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? appColors.primary : Colors.grey.shade600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Patient Activity Feed
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _ActivityFeedSection extends StatelessWidget {
+  final DoctorDashboardProvider provider;
+  const _ActivityFeedSection({required this.provider});
+
+  String _formatSessionType(String? type) {
+    switch (type) {
+      case 'mchat':
+        return 'M-CHAT';
+      case 'emotion_assessment':
+        return 'Emotion';
+      case 'eye_contact':
+        return 'Eye Contact';
+      case 'imitation':
+        return 'Imitation';
+      default:
+        return type?.split('_').map((w) =>
+            w.isNotEmpty ? w[0].toUpperCase() + w.substring(1) : '').join(' ') ?? '';
+    }
+  }
+
+  Color _getRiskColor(String? risk) {
+    switch (risk) {
+      case 'high':
+        return Colors.red;
+      case 'medium':
+        return Colors.amber.shade700;
+      case 'low':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getRiskLabel(String? risk) {
+    switch (risk) {
+      case 'high':
+        return 'High';
+      case 'medium':
+        return 'Moderate';
+      case 'low':
+        return 'Low';
+      default:
+        return 'Pending';
+    }
+  }
+
+  String _formatTimeAgo(String? dateString) {
+    if (dateString == null) return '';
+    try {
+      final date = DateTime.parse(dateString);
+      final diff = DateTime.now().difference(date);
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return '${diff.inDays ~/ 7}w ago';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final feed = provider.activityFeed;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Patient Activity',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF111827),
+              ),
+            ),
+            const Spacer(),
+            if (feed.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: appColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${feed.length}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: appColors.primary,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (provider.isLoadingFeed)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else if (feed.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.event_note_rounded,
+                    size: 40, color: Colors.grey.shade300),
+                const SizedBox(height: 12),
+                Text(
+                  'No recent activity',
+                  style: GoogleFonts.poppins(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ...feed.take(10).map((session) {
+            final childName = session['child_name'] as String? ?? 'Unknown';
+            final sessionType = session['session_type'] as String?;
+            final score = (session['score'] as num?)?.toDouble();
+            final riskFlag = session['risk_flag'] as String?;
+            final completedAt = session['completed_at'] as String?;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // Risk indicator dot
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: _getRiskColor(riskFlag),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  childName,
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Text(
+                                _formatTimeAgo(completedAt),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              // Session type badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.indigo.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  _formatSessionType(sessionType),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.indigo.shade700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+
+                              // Score
+                              if (score != null) ...[
+                                Icon(Icons.trending_up_rounded,
+                                    size: 14, color: Colors.grey.shade500),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${score.toStringAsFixed(0)}%',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+
+                              // Risk badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _getRiskColor(riskFlag)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  _getRiskLabel(riskFlag),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: _getRiskColor(riskFlag),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Supporting Widgets
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _EmptyPatientsState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 40),
+        child: Column(
+          children: [
+            Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              "No patients linked yet",
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Ask a parent for their child's join code to get started",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(color: Colors.grey),
             ),
           ],
         ),

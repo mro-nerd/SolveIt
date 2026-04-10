@@ -68,3 +68,6 @@ pubspec.lock
 # Firebase credentials
 **/android/app/google-services.json
 **/ios/Runner/GoogleService-Info.plist
+
+# Flutter DevTools
+devtools_options.yaml
