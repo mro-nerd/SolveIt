@@ -163,8 +163,8 @@ Use markdown formatting. Be conversational and supportive, like a knowledgeable 
 
       // Use vision-capable model for images, text model for text-only
       final model = image != null
-          ? "google/gemma-3-12b-it:free"
-          : "google/gemma-3n-e2b-it:free";
+          ? "google/gemma-4-26b-a4b-it:free"
+          : "minimax/minimax-m2.5:free";
 
       final request = http.Request("POST", Uri.parse(_apiEndpoint))
         ..headers.addAll({
